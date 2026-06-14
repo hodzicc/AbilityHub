@@ -1,0 +1,125 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: abilityhub-sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "AbilityHub123!"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: abilityhub-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP (services connect here)
+      - "15672:15672"  # Management UI (http://localhost:15672)
+    environment:
+      RABBITMQ_DEFAULT_USER: "abilityhub"
+      RABBITMQ_DEFAULT_PASS: "abilityhub123"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: Auth
+    container_name: abilityhub-auth
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+      Seed__AdminPassword: "${ADMIN_PASSWORD}"
+    depends_on:
+      - sqlserver
+      - rabbitmq
+    restart: unless-stopped
+
+  users:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: Users
+    container_name: abilityhub-users
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+    depends_on:
+      - sqlserver
+      - rabbitmq
+    restart: unless-stopped
+
+  appregistry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: AppRegistry
+    container_name: abilityhub-appregistry
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+    depends_on:
+      - sqlserver
+      - rabbitmq
+      - users
+    restart: unless-stopped
+
+  settings:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: Settings
+    container_name: abilityhub-settings
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+    depends_on:
+      - sqlserver
+      - rabbitmq
+      - users
+    restart: unless-stopped
+
+  usage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: Usage
+    container_name: abilityhub-usage
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+    depends_on:
+      - sqlserver
+      - users
+      - settings
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: abilityhub-gateway
+    ports:
+      - "8080:8080"   # the only entry point exposed to the host
+    environment:
+      Jwt__Key: "${JWT_KEY}"
+    depends_on:
+      - auth
+      - users
+      - appregistry
+      - settings
+      - usage
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+  rabbitmq_data:

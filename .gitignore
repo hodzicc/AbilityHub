@@ -32,3 +32,5 @@ next-env.d.ts
 
 # local QA artifacts
 *integrations-qa.png
+/BE/.claude
+/BE/docs

@@ -1,0 +1,6 @@
+@AbilityHub.Auth_HostAddress = http://localhost:5289
+
+GET {{AbilityHub.Auth_HostAddress}}/
+Accept: application/json
+
+###

@@ -1,0 +1,6 @@
+@AbilityHub.Users_HostAddress = http://localhost:5289
+
+GET {{AbilityHub.Users_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
