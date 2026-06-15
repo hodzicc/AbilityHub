@@ -6,6 +6,7 @@ using AbilityHub.AppRegistry;
 using AbilityHub.AppRegistry.Repositories;
 using AbilityHub.AppRegistry.Services;
 using AbilityHub.MessageBus;
+using AbilityHub.AppRegistry.Data;
 using AbilityHub.ServiceClients;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -70,6 +71,7 @@ using (var scope = app.Services.CreateScope())
         try
         {
             await db.Database.MigrateAsync();
+            await AppSeedData.InitializeAsync(db);
             break;
         }
         catch

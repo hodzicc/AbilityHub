@@ -4,7 +4,9 @@ export type UserRole = 'parent' | 'admin'
 export interface User {
   id: string
   email: string
-  name: string
+  name: string         // computed: firstName + lastName
+  firstName: string
+  lastName: string
   role: UserRole
   avatar?: string
   createdAt: Date
@@ -17,11 +19,13 @@ export type Gender = 'male' | 'female'
 export interface Child {
   id: string
   name: string
+  firstName: string
+  lastName: string
   dateOfBirth: Date
   gender: Gender
   avatar?: string
   parentId: string
-  assignedApps: string[]
+  assignedApps: string[]  // array of app IDs (populated separately)
   createdAt: Date
 }
 
@@ -30,22 +34,27 @@ export type AppCategory = 'education' | 'speech' | 'motor' | 'daily' | 'games'
 
 export interface Application {
   id: string
+  key: string
   name: string
   description: string
   category: AppCategory
-  icon: string
-  color: string
+  icon: string   // Lucide icon name
+  color: string  // hex
   minAge: number
   maxAge: number
   features: string[]
   isActive: boolean
   platform?: 'web' | 'mobile' | 'hybrid'
+  // Integration display fields (may come from BE or fall back to static defaults)
   integrationStatus?: 'ready' | 'in-progress' | 'needs-adapter'
   apiVersion?: string
   authMethod?: 'SSO' | 'legacy' | 'planned'
   dataContract?: string[]
   syncFrequency?: string
   lastSync?: Date
+  // Raw BE fields
+  dataFormat?: string
+  version?: string
 }
 
 export interface AppAssignment {

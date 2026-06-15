@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth, useTranslation, useLanguage } from '@/components/providers'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,29 +19,42 @@ import {
 import { locales, localeNames } from '@/lib/i18n/config'
 import type { Language } from '@/lib/types'
 import { toast } from 'sonner'
-import { User, Mail, Shield, Calendar } from 'lucide-react'
+import { User, Mail, Shield, Calendar, Loader2 } from 'lucide-react'
+import { apiUpdateProfile } from '@/lib/api'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { locale, setLocale } = useLanguage()
 
-  const handleSave = () => {
-    toast.success(t('settings.saveSuccess'))
+  const [firstName, setFirstName] = useState(user?.firstName ?? '')
+  const [lastName, setLastName] = useState(user?.lastName ?? '')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!user || !firstName || !lastName) return
+    setIsSaving(true)
+    try {
+      await apiUpdateProfile(user.id, { firstName, lastName })
+      toast.success(t('settings.saveSuccess'))
+    } catch {
+      toast.error('Greška pri spremanju')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const getInitials = (name: string) => {
-    return name
+  const getInitials = (name: string) =>
+    name
       .split(' ')
       .map(n => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2)
-  }
 
   return (
     <div className="space-y-6">
-      <PageHeader 
+      <PageHeader
         title={t('settings.general')}
         description="Upravljajte postavkama vašeg računa"
       />
@@ -52,9 +66,7 @@ export default function SettingsPage() {
             <User className="h-5 w-5" />
             Profil
           </CardTitle>
-          <CardDescription>
-            Vaše osobne informacije
-          </CardDescription>
+          <CardDescription>Vaše osobne informacije</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
@@ -79,17 +91,33 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-            <Button variant="outline">Promijeni sliku</Button>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="name">{t('auth.fullName')}</Label>
-              <Input id="name" defaultValue={user?.name} />
+              <Label htmlFor="firstName">Ime</Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                disabled={isSaving}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.email')}</Label>
-              <Input id="email" type="email" defaultValue={user?.email} />
+              <Label htmlFor="lastName">Prezime</Label>
+              <Input
+                id="lastName"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="email">
+                <Mail className="inline mr-1 h-3 w-3" />
+                {t('auth.email')}
+              </Label>
+              <Input id="email" type="email" value={user?.email ?? ''} disabled />
             </div>
           </div>
         </CardContent>
@@ -99,9 +127,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t('settings.language')}</CardTitle>
-          <CardDescription>
-            Odaberite jezik sučelja
-          </CardDescription>
+          <CardDescription>Odaberite jezik sučelja</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="max-w-xs">
@@ -121,36 +147,10 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Password Change */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Promjena lozinke</CardTitle>
-          <CardDescription>
-            Ažurirajte vašu lozinku za pristup
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Trenutna lozinka</Label>
-              <Input id="currentPassword" type="password" />
-            </div>
-            <div />
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">Nova lozinka</Label>
-              <Input id="newPassword" type="password" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Potvrdi novu lozinku</Label>
-              <Input id="confirmPassword" type="password" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {t('common.save')}
         </Button>
       </div>

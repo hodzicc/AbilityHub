@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from '@/components/providers'
 import { cn } from '@/lib/utils'
 import { Users, AppWindow, Clock, TrendingUp, type LucideIcon } from 'lucide-react'
@@ -10,40 +10,31 @@ interface StatCardProps {
   value: string | number
   description?: string
   icon: LucideIcon
-  trend?: {
-    value: number
-    isPositive: boolean
-  }
-  className?: string
+  gradient: string
+  iconBg: string
+  iconColor: string
 }
 
-function StatCard({ title, value, description, icon: Icon, trend, className }: StatCardProps) {
+function StatCard({ title, value, description, icon: Icon, gradient, iconBg, iconColor }: StatCardProps) {
   return (
-    <Card className={className}>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {(description || trend) && (
-          <div className="flex items-center gap-2 mt-1">
-            {trend && (
-              <span className={cn(
-                'text-xs font-medium',
-                trend.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-              )}>
-                {trend.isPositive ? '+' : ''}{trend.value}%
-              </span>
-            )}
+    <Card className={cn('relative overflow-hidden border-0 shadow-sm', gradient)}>
+      <CardContent className="pt-6 pb-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">{title}</p>
+            <p className="mt-2 text-3xl font-bold text-white">{value}</p>
             {description && (
-              <p className="text-xs text-muted-foreground">{description}</p>
+              <p className="mt-1 text-xs text-white/70">{description}</p>
             )}
           </div>
-        )}
+          <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', iconBg)}>
+            <Icon className={cn('h-6 w-6', iconColor)} />
+          </div>
+        </div>
       </CardContent>
+      {/* Decorative circle */}
+      <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10" />
+      <div className="pointer-events-none absolute -bottom-8 -left-4 h-24 w-24 rounded-full bg-white/5" />
     </Card>
   )
 }
@@ -59,14 +50,10 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
   const { t } = useTranslation()
 
   const formatDuration = (minutes: number) => {
-    if (minutes < 60) {
-      return `${minutes} ${t('dashboard.minutes')}`
-    }
+    if (minutes < 60) return `${minutes} ${t('dashboard.minutes')}`
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
-    if (mins === 0) {
-      return `${hours} ${t('dashboard.hours')}`
-    }
+    if (mins === 0) return `${hours} ${t('dashboard.hours')}`
     return `${hours}h ${mins}m`
   }
 
@@ -75,25 +62,38 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
       <StatCard
         title={t('dashboard.totalChildren')}
         value={childrenCount}
+        description="Aktivni profili"
         icon={Users}
-        trend={{ value: 0, isPositive: true }}
+        gradient="bg-gradient-to-br from-indigo-500 to-indigo-700"
+        iconBg="bg-white/20"
+        iconColor="text-white"
       />
       <StatCard
         title={t('dashboard.activeApps')}
         value={activeAppsCount}
+        description="Dostupne aplikacije"
         icon={AppWindow}
+        gradient="bg-gradient-to-br from-orange-400 to-orange-600"
+        iconBg="bg-white/20"
+        iconColor="text-white"
       />
       <StatCard
         title={t('dashboard.todayUsage')}
         value={formatDuration(todayUsageMinutes)}
+        description="Ukupno danas"
         icon={Clock}
-        trend={{ value: 12, isPositive: true }}
+        gradient="bg-gradient-to-br from-emerald-400 to-emerald-600"
+        iconBg="bg-white/20"
+        iconColor="text-white"
       />
       <StatCard
         title={t('dashboard.avgProgress')}
         value={`${avgProgress}%`}
+        description="Prosjek napretka"
         icon={TrendingUp}
-        trend={{ value: 5, isPositive: true }}
+        gradient="bg-gradient-to-br from-amber-400 to-amber-600"
+        iconBg="bg-white/20"
+        iconColor="text-white"
       />
     </div>
   )

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useTranslation } from '@/components/providers'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
@@ -22,25 +21,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { toast } from 'sonner'
-import { mockChildren } from '@/lib/mock-data'
-import type { Application, Child } from '@/lib/types'
 import { Loader2 } from 'lucide-react'
+import type { Application, Child } from '@/lib/types'
 
 interface AssignAppDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   app: Application
-  onAssign: (childId: string, timeLimit: number) => void
-  assignedChildIds: string[]
+  onAssign: (childId: string, timeLimit: number) => Promise<void>
+  availableChildren: Child[]
 }
 
-export function AssignAppDialog({ 
-  open, 
-  onOpenChange, 
-  app, 
+export function AssignAppDialog({
+  open,
+  onOpenChange,
+  app,
   onAssign,
-  assignedChildIds 
+  availableChildren,
 }: AssignAppDialogProps) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
@@ -48,27 +45,20 @@ export function AssignAppDialog({
   const [hasTimeLimit, setHasTimeLimit] = useState(false)
   const [timeLimit, setTimeLimit] = useState(30)
 
-  const availableChildren = mockChildren.filter(c => !assignedChildIds.includes(c.id))
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!selectedChild) {
-      toast.error('Molimo odaberite dijete')
-      return
-    }
+    if (!selectedChild) return
 
     setIsLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    onAssign(selectedChild, hasTimeLimit ? timeLimit : 0)
-    
-    toast.success('Aplikacija uspješno dodijeljena')
-    setIsLoading(false)
-    onOpenChange(false)
-    setSelectedChild('')
-    setHasTimeLimit(false)
-    setTimeLimit(30)
+    try {
+      await onAssign(selectedChild, hasTimeLimit ? timeLimit : 0)
+      onOpenChange(false)
+      setSelectedChild('')
+      setHasTimeLimit(false)
+      setTimeLimit(30)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -84,8 +74,8 @@ export function AssignAppDialog({
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label>{t('statistics.selectChild')}</Label>
-              <Select 
-                value={selectedChild} 
+              <Select
+                value={selectedChild}
                 onValueChange={setSelectedChild}
                 disabled={isLoading}
               >
@@ -114,8 +104,8 @@ export function AssignAppDialog({
                   Ograničite dnevno vrijeme korištenja
                 </p>
               </div>
-              <Switch 
-                checked={hasTimeLimit} 
+              <Switch
+                checked={hasTimeLimit}
                 onCheckedChange={setHasTimeLimit}
                 disabled={isLoading}
               />
@@ -143,17 +133,17 @@ export function AssignAppDialog({
             )}
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
               {t('common.cancel')}
             </Button>
-            <Button 
-              type="submit" 
-              disabled={isLoading || availableChildren.length === 0}
+            <Button
+              type="submit"
+              disabled={isLoading || availableChildren.length === 0 || !selectedChild}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('children.assignApps')}

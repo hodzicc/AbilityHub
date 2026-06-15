@@ -8,6 +8,12 @@ public class RegisterApplicationRequest
     public string Version { get; set; } = string.Empty;
     public string DataFormat { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public string IconName { get; set; } = "AppWindow";
+    public string Color { get; set; } = "#4F46E5";
+    public int MinAge { get; set; } = 0;
+    public int MaxAge { get; set; } = 18;
+    public string FeaturesJson { get; set; } = "[]";
 }
 
 public class UpdateApplicationRequest
@@ -18,6 +24,12 @@ public class UpdateApplicationRequest
     public string DataFormat { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public string Category { get; set; } = string.Empty;
+    public string IconName { get; set; } = "AppWindow";
+    public string Color { get; set; } = "#4F46E5";
+    public int MinAge { get; set; } = 0;
+    public int MaxAge { get; set; } = 18;
+    public string FeaturesJson { get; set; } = "[]";
 }
 
 public class ApplicationResponse
@@ -30,6 +42,12 @@ public class ApplicationResponse
     public string DataFormat { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public string IconName { get; set; } = "AppWindow";
+    public string Color { get; set; } = "#4F46E5";
+    public int MinAge { get; set; }
+    public int MaxAge { get; set; }
+    public string FeaturesJson { get; set; } = "[]";
 }
 
 public class AssignAppRequest

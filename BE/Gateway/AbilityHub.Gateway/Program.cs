@@ -32,6 +32,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 // Ensure every request carries a correlation id; YARP forwards it downstream.
@@ -66,6 +77,8 @@ app.UseSwaggerUI(options =>
 
 // Hitting the gateway root drops you straight onto Swagger.
 app.MapGet("/", () => Results.Redirect("/swagger"));
+
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

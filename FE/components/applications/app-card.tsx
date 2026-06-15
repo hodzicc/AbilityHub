@@ -1,34 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/components/providers'
 import type { Application } from '@/lib/types'
-import { 
-  BookOpen, 
-  Calculator, 
-  MessageCircle, 
-  Palette, 
-  Clock, 
-  Gamepad2,
-  ArrowRight
-} from 'lucide-react'
-
-const iconMap: Record<string, React.ElementType> = {
+import {
   BookOpen,
   Calculator,
   MessageCircle,
   Palette,
   Clock,
-  Gamepad2
-}
+  Gamepad2,
+  AppWindow,
+  ArrowRight,
+  Users,
+} from 'lucide-react'
 
-const integrationStatusLabel = {
-  ready: 'Integrisano',
-  'in-progress': 'U integraciji',
-  'needs-adapter': 'Treba adapter',
+const iconMap: Record<string, React.ElementType> = {
+  BookOpen, Calculator, MessageCircle, Palette, Clock, Gamepad2, AppWindow,
 }
 
 interface AppCardProps {
@@ -38,60 +29,66 @@ interface AppCardProps {
 
 export function AppCard({ app, assignedCount = 0 }: AppCardProps) {
   const { t } = useTranslation()
-  const Icon = iconMap[app.icon] || BookOpen
+  const Icon = iconMap[app.icon] || AppWindow
+  const color = app.color || '#6366f1'
 
   return (
-    <Card className="group hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div 
-              className="flex h-12 w-12 items-center justify-center rounded-xl transition-transform group-hover:scale-105"
-              style={{ backgroundColor: app.color + '20', color: app.color }}
+    <Card className="group overflow-hidden border-0 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+      {/* Colored banner */}
+      <div
+        className="h-24 w-full flex items-end px-5 pb-0"
+        style={{ background: `linear-gradient(135deg, ${color}22 0%, ${color}44 100%)` }}
+      >
+        <div
+          className="flex h-14 w-14 translate-y-7 items-center justify-center rounded-2xl shadow-lg transition-transform duration-200 group-hover:scale-105"
+          style={{ backgroundColor: color, color: '#fff' }}
+        >
+          <Icon className="h-7 w-7" />
+        </div>
+      </div>
+
+      <CardContent className="pt-10 pb-5 space-y-3">
+        <div>
+          <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+            {app.name}
+          </h3>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            <Badge
+              variant="secondary"
+              className="text-xs border-0"
+              style={{ backgroundColor: color + '18', color }}
             >
-              <Icon className="h-6 w-6" />
-            </div>
-            <div>
-              <CardTitle className="text-base group-hover:text-primary transition-colors">
-                {app.name}
-              </CardTitle>
-              <Badge variant="secondary" className="mt-1">
-                {t(`applications.categories.${app.category}`)}
-              </Badge>
-            </div>
+              {t(`applications.categories.${app.category}`)}
+            </Badge>
+            {!app.isActive && (
+              <Badge variant="secondary" className="text-xs">Neaktivna</Badge>
+            )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {app.description}
-        </p>
-        
+
+        <p className="text-sm text-muted-foreground line-clamp-2">{app.description}</p>
+
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t('applications.ageRange')}</span>
-          <span className="font-medium">{app.minAge}-{app.maxAge} {t('children.years')}</span>
+          <span className="font-medium">{app.minAge}–{app.maxAge} {t('children.years')}</span>
         </div>
 
         {assignedCount > 0 && (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{t('applications.assigned')}</span>
-            <Badge variant="outline">{assignedCount} djece</Badge>
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            <span>{assignedCount} {assignedCount === 1 ? 'dijete' : 'djece'}</span>
           </div>
         )}
 
-        {app.integrationStatus && (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Integracija</span>
-            <Badge variant={app.integrationStatus === 'ready' ? 'default' : 'secondary'}>
-              {integrationStatusLabel[app.integrationStatus]}
-            </Badge>
-          </div>
-        )}
-
-        <Button variant="outline" className="w-full" asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full mt-1 group/btn hover:border-primary hover:text-primary"
+          asChild
+        >
           <Link href={`/dashboard/applications/${app.id}`}>
             {t('applications.details')}
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
           </Link>
         </Button>
       </CardContent>

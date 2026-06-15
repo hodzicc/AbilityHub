@@ -8,9 +8,8 @@ import { useTranslation } from '@/components/providers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Loader2, Eye, EyeOff, Heart } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Heart, Mail, Lock } from 'lucide-react'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -24,7 +23,6 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-
     try {
       const success = await login(email, password)
       if (success) {
@@ -41,93 +39,92 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1 text-center">
-        <div className="flex justify-center mb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary">
-            <Heart className="h-6 w-6 text-primary-foreground" />
+    <div className="w-full max-w-md">
+      {/* Glass card */}
+      <div className="rounded-2xl border border-white/80 bg-white/80 shadow-xl shadow-indigo-100/50 backdrop-blur-md dark:border-border dark:bg-card/90 dark:shadow-none">
+        <div className="p-8">
+          {/* Logo */}
+          <div className="mb-6 flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40">
+              <Heart className="h-7 w-7 text-white" />
+            </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-bold tracking-tight">{t('auth.loginTitle')}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{t('auth.loginSubtitle')}</p>
+            </div>
           </div>
-        </div>
-        <CardTitle className="text-2xl font-semibold tracking-tight">
-          {t('auth.loginTitle')}
-        </CardTitle>
-        <CardDescription>
-          {t('auth.loginSubtitle')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">{t('auth.email')}</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="ime@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">{t('auth.email')}</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="ime@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="email"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">{t('auth.password')}</Label>
+                <Link href="#" className="text-xs text-primary hover:underline">
+                  {t('auth.forgotPassword')}
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                  className="pl-9 pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword
+                    ? <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    : <Eye className="h-4 w-4 text-muted-foreground" />}
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md shadow-indigo-200/50 dark:shadow-none"
               disabled={isLoading}
-              autoComplete="email"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">{t('auth.password')}</Label>
-              <Link 
-                href="#" 
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                {t('auth.forgotPassword')}
-              </Link>
-            </div>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="current-password"
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-                <span className="sr-only">
-                  {showPassword ? 'Hide password' : 'Show password'}
-                </span>
-              </Button>
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('auth.loginButton')}
-          </Button>
-        </form>
-        <div className="mt-6 text-center text-sm">
-          <span className="text-muted-foreground">{t('auth.noAccount')} </span>
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            {t('auth.createAccount')}
-          </Link>
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('auth.loginButton')}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            {t('auth.noAccount')}{' '}
+            <Link href="/register" className="font-semibold text-primary hover:underline">
+              {t('auth.createAccount')}
+            </Link>
+          </p>
         </div>
-        <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-          <p className="font-medium mb-1">Demo pristupni podaci:</p>
-          <p>Email: roditelj@example.com</p>
-          <p>Email: admin@example.com</p>
-          <p className="text-[10px] mt-1">(bilo koja lozinka)</p>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

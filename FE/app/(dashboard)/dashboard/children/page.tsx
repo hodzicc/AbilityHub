@@ -1,70 +1,172 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from '@/components/providers'
+import { useAuth } from '@/components/providers'
 import { PageHeader, EmptyState, ConfirmationDialog } from '@/components/shared'
 import { ChildCard, AddChildDialog } from '@/components/children'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { mockChildren, mockChildProgress } from '@/lib/mock-data'
 import type { Child } from '@/lib/types'
-import { Plus, Search, Users } from 'lucide-react'
+import { Plus, Search, Users, Info } from 'lucide-react'
+import {
+  apiGetChildren,
+  apiGetChildApps,
+  apiGetAllUsers,
+  apiCreateUser,
+  apiUpdateProfile,
+  apiDeactivateUser,
+  type UserProfileResponse,
+} from '@/lib/api'
+import { toast } from 'sonner'
+
+function profileToChild(p: UserProfileResponse, guardianId: string, assignedApps: string[] = []): Child {
+  return {
+    id: p.id,
+    name: `${p.firstName} ${p.lastName}`.trim(),
+    firstName: p.firstName,
+    lastName: p.lastName,
+    dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : new Date('2015-01-01'),
+    gender: (p.gender as 'male' | 'female') ?? 'male',
+    parentId: guardianId,
+    assignedApps,
+    createdAt: new Date(p.createdAt),
+  }
+}
 
 export default function ChildrenPage() {
   const { t } = useTranslation()
-  const [children, setChildren] = useState<Child[]>(mockChildren)
+  const { user } = useAuth()
+  const [children, setChildren] = useState<Child[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editChild, setEditChild] = useState<Child | null>(null)
   const [deleteChild, setDeleteChild] = useState<Child | null>(null)
 
+  const loadChildren = async () => {
+    if (!user) return
+    setIsLoading(true)
+    try {
+      let profiles: UserProfileResponse[]
+      if (user.role === 'admin') {
+        // Admin sees all children across the system
+        const allUsers = await apiGetAllUsers(1, 200)
+        profiles = allUsers.items.filter(u => u.roleId === 3)
+      } else {
+        profiles = await apiGetChildren(user.id)
+      }
+      const enriched = await Promise.all(
+        profiles.map(async p => {
+          const apps = await apiGetChildApps(p.id).catch(() => [])
+          return profileToChild(p, user.id, apps.map(a => a.applicationId))
+        })
+      )
+      setChildren(enriched)
+    } catch {
+      toast.error('Greška pri učitavanju djece')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadChildren()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
+
   const filteredChildren = children.filter(child =>
     child.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const getChildProgress = (childId: string) => {
-    const progress = mockChildProgress.filter(p => p.childId === childId)
-    if (progress.length === 0) return 0
-    return Math.round(progress.reduce((sum, p) => sum + p.score, 0) / progress.length)
-  }
-
-  const handleAddChild = (childData: Omit<Child, 'id' | 'createdAt' | 'parentId'>) => {
+  const handleAddChild = async (childData: {
+    firstName: string
+    lastName: string
+    dateOfBirth: Date
+    gender: 'male' | 'female'
+  }) => {
+    if (!user) return
     if (editChild) {
-      setChildren(prev => prev.map(c => 
-        c.id === editChild.id 
-          ? { ...c, ...childData }
-          : c
-      ))
-      setEditChild(null)
-    } else {
-      const newChild: Child = {
-        ...childData,
-        id: `child-${Date.now()}`,
-        parentId: 'user-1',
-        createdAt: new Date()
+      // Update existing child profile
+      try {
+        await apiUpdateProfile(editChild.id, {
+          firstName: childData.firstName,
+          lastName: childData.lastName,
+          dateOfBirth: childData.dateOfBirth.toISOString(),
+          gender: childData.gender,
+        })
+        toast.success(t('children.editSuccess'))
+        setEditChild(null)
+        await loadChildren()
+      } catch {
+        toast.error('Greška pri ažuriranju profila')
       }
-      setChildren(prev => [...prev, newChild])
+    } else {
+      // Create new child account
+      try {
+        const email = `child-${Date.now()}@internal.abilityhub.app`
+        const password = Math.random().toString(36).slice(-12) + 'Aa1!'
+        const result = await apiCreateUser({
+          email,
+          password,
+          firstName: childData.firstName,
+          lastName: childData.lastName,
+          roleId: 3, // Child
+        })
+        if (!result.success) {
+          toast.error('Greška pri kreiranju djeteta')
+          return
+        }
+        // Set dateOfBirth and gender via profile update
+        await apiUpdateProfile(result.userId, {
+          firstName: childData.firstName,
+          lastName: childData.lastName,
+          dateOfBirth: childData.dateOfBirth.toISOString(),
+          gender: childData.gender,
+        })
+        toast.success(t('children.addSuccess'))
+        await loadChildren()
+      } catch {
+        toast.error('Greška pri dodavanju djeteta')
+      }
     }
   }
 
-  const handleDeleteChild = () => {
-    if (deleteChild) {
-      setChildren(prev => prev.filter(c => c.id !== deleteChild.id))
+  const handleDeleteChild = async () => {
+    if (!deleteChild) return
+    try {
+      await apiDeactivateUser(deleteChild.id)
+      toast.success('Dijete deaktivirano')
+      setDeleteChild(null)
+      await loadChildren()
+    } catch {
+      toast.error('Greška pri brisanju djeteta')
       setDeleteChild(null)
     }
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader 
+      <PageHeader
         title={t('children.title')}
         description={t('children.subtitle')}
       >
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('children.addChild')}
-        </Button>
+        {user?.role !== 'admin' && (
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('children.addChild')}
+          </Button>
+        )}
       </PageHeader>
+
+      {user?.role === 'admin' && (
+        <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+          <p className="text-sm text-indigo-700 dark:text-indigo-300">
+            Djecu kreiraju roditelji iz svog naloga. Administrator može pregledati i urediti profile, ali ne može kreirati djecu bez vezanog roditelja.
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -78,13 +180,19 @@ export default function ChildrenPage() {
       </div>
 
       {/* Children Grid */}
-      {filteredChildren.length > 0 ? (
+      {isLoading ? (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-52 rounded-lg bg-muted animate-pulse" />
+          ))}
+        </div>
+      ) : filteredChildren.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredChildren.map(child => (
-            <ChildCard 
-              key={child.id} 
+            <ChildCard
+              key={child.id}
               child={child}
-              progress={getChildProgress(child.id)}
+              progress={0}
               onEdit={() => {
                 setEditChild(child)
                 setIsAddDialogOpen(true)
@@ -98,7 +206,7 @@ export default function ChildrenPage() {
           icon={Users}
           title={searchQuery ? 'Nema rezultata pretrage' : t('children.noChildren')}
           description={searchQuery ? 'Pokušajte s drugim pojmom' : t('children.noChildrenDesc')}
-          action={!searchQuery ? {
+          action={!searchQuery && user?.role !== 'admin' ? {
             label: t('children.addChild'),
             onClick: () => setIsAddDialogOpen(true)
           } : undefined}

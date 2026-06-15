@@ -13,6 +13,7 @@ using AbilityHub.Auth.Repositories.Interfaces;
 using AbilityHub.Auth.Repositories.Implementations;
 using AbilityHub.Users.Services;
 using AbilityHub.MessageBus;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,6 +101,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+    var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
 
     var retries = 0;
 
@@ -109,7 +111,8 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.MigrateAsync();
             await RoleSeedData.InitializeAsync(db);
-            await AdminSeedData.InitializeAsync(db, passwordHasher, app.Configuration);
+            await AdminSeedData.InitializeAsync(db, passwordHasher, app.Configuration, publishEndpoint);
+            await DemoSeedData.InitializeAsync(db, passwordHasher, publishEndpoint);
             break;
         }
         catch

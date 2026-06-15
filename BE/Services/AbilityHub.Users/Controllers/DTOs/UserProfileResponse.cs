@@ -8,4 +8,7 @@ public class UserProfileResponse
     public string LastName { get; set; } = string.Empty;
     public int RoleId { get; set; }
     public bool IsActive { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

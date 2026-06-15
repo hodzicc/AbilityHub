@@ -55,6 +55,12 @@ public class ApplicationsController : ControllerBase
             Version = request.Version,
             DataFormat = request.DataFormat,
             Description = request.Description,
+            Category = request.Category,
+            IconName = request.IconName,
+            Color = request.Color,
+            MinAge = request.MinAge,
+            MaxAge = request.MaxAge,
+            FeaturesJson = request.FeaturesJson,
             IsActive = true,
             CreateUserId = CurrentUserId,
             CreatedAt = DateTime.UtcNow
@@ -79,6 +85,12 @@ public class ApplicationsController : ControllerBase
         app.DataFormat = request.DataFormat;
         app.Description = request.Description;
         app.IsActive = request.IsActive;
+        app.Category = request.Category;
+        app.IconName = request.IconName;
+        app.Color = request.Color;
+        app.MinAge = request.MinAge;
+        app.MaxAge = request.MaxAge;
+        app.FeaturesJson = request.FeaturesJson;
         app.UpdateUserId = CurrentUserId;
         app.UpdatedAt = DateTime.UtcNow;
 
@@ -117,6 +129,12 @@ public class ApplicationsController : ControllerBase
         Version = a.Version,
         DataFormat = a.DataFormat,
         Description = a.Description,
-        IsActive = a.IsActive
+        IsActive = a.IsActive,
+        Category = a.Category,
+        IconName = a.IconName,
+        Color = a.Color,
+        MinAge = a.MinAge,
+        MaxAge = a.MaxAge,
+        FeaturesJson = a.FeaturesJson
     };
 }

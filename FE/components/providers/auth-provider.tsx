@@ -1,8 +1,18 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import type { User, AuthState, UserRole } from '@/lib/types'
-import { mockUsers } from '@/lib/mock-data'
+import type { User, AuthState } from '@/lib/types'
+import {
+  apiLogin,
+  apiRegister,
+  apiLogout,
+  apiGetMe,
+  setTokens,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  type UserProfileResponse,
+} from '@/lib/api'
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>
@@ -12,97 +22,83 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function profileToUser(p: UserProfileResponse): User {
+  return {
+    id: p.id,
+    email: p.email,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    name: `${p.firstName} ${p.lastName}`.trim(),
+    role: p.roleId === 1 ? 'admin' : 'parent',
+    createdAt: new Date(p.createdAt),
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
-    isLoading: true
+    isLoading: true,
   })
 
+  // On mount: if we have a stored token try to restore the session.
   useEffect(() => {
-    const storedUser = localStorage.getItem('abilityhub-user')
-
-    if (!storedUser) {
-      setState(prev => ({ ...prev, isLoading: false }))
-      return
+    const restore = async () => {
+      if (!getAccessToken()) {
+        setState(prev => ({ ...prev, isLoading: false }))
+        return
+      }
+      try {
+        const profile = await apiGetMe()
+        setState({ user: profileToUser(profile), isAuthenticated: true, isLoading: false })
+      } catch {
+        clearTokens()
+        setState({ user: null, isAuthenticated: false, isLoading: false })
+      }
     }
+    restore()
+  }, [])
 
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setState(prev => ({ ...prev, isLoading: true }))
     try {
-      const user = JSON.parse(storedUser)
-      setState({
-        user,
-        isAuthenticated: true,
-        isLoading: false
-      })
-    } catch {
-      localStorage.removeItem('abilityhub-user')
-      setState(prev => ({ ...prev, isLoading: false }))
-    }
-  }, [])
-
-  const login = useCallback(async (email: string, _password: string): Promise<boolean> => {
-    setState(prev => ({ ...prev, isLoading: true }))
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // Find user by email (mock authentication)
-    const user = mockUsers.find(u => u.email === email)
-    
-    if (user) {
-      const updatedUser = { ...user, lastLogin: new Date() }
-      localStorage.setItem('abilityhub-user', JSON.stringify(updatedUser))
-      setState({
-        user: updatedUser,
-        isAuthenticated: true,
-        isLoading: false
-      })
+      const auth = await apiLogin(email, password)
+      setTokens(auth.accessToken, auth.refreshToken)
+      const profile = await apiGetMe()
+      const user = profileToUser(profile)
+      setState({ user, isAuthenticated: true, isLoading: false })
       return true
-    }
-    
-    setState(prev => ({ ...prev, isLoading: false }))
-    return false
-  }, [])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('abilityhub-user')
-    setState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false
-    })
-  }, [])
-
-  const register = useCallback(async (email: string, _password: string, name: string): Promise<boolean> => {
-    setState(prev => ({ ...prev, isLoading: true }))
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // Check if email already exists
-    const existingUser = mockUsers.find(u => u.email === email)
-    if (existingUser) {
+    } catch {
       setState(prev => ({ ...prev, isLoading: false }))
       return false
     }
-    
-    // Create new user (in real app, this would be saved to backend)
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email,
-      name,
-      role: 'parent' as UserRole,
-      createdAt: new Date(),
-      lastLogin: new Date()
+  }, [])
+
+  const logout = useCallback(async () => {
+    const rt = getRefreshToken()
+    if (rt) await apiLogout(rt)
+    clearTokens()
+    setState({ user: null, isAuthenticated: false, isLoading: false })
+  }, [])
+
+  const register = useCallback(async (email: string, password: string, name: string): Promise<boolean> => {
+    setState(prev => ({ ...prev, isLoading: true }))
+    try {
+      // Split name into firstName / lastName (best-effort)
+      const parts = name.trim().split(' ')
+      const firstName = parts[0] ?? name
+      const lastName = parts.slice(1).join(' ') || '-'
+
+      const auth = await apiRegister(email, password, firstName, lastName)
+      setTokens(auth.accessToken, auth.refreshToken)
+      const profile = await apiGetMe()
+      const user = profileToUser(profile)
+      setState({ user, isAuthenticated: true, isLoading: false })
+      return true
+    } catch {
+      setState(prev => ({ ...prev, isLoading: false }))
+      return false
     }
-    
-    localStorage.setItem('abilityhub-user', JSON.stringify(newUser))
-    setState({
-      user: newUser,
-      isAuthenticated: true,
-      isLoading: false
-    })
-    return true
   }, [])
 
   return (
@@ -119,4 +115,3 @@ export function useAuth() {
   }
   return context
 }
-

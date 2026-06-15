@@ -66,6 +66,8 @@ public class UsersController : ControllerBase
 
         user.FirstName = request.FirstName;
         user.LastName = request.LastName;
+        if (request.DateOfBirth.HasValue) user.DateOfBirth = request.DateOfBirth;
+        if (request.Gender is not null) user.Gender = request.Gender;
         user.UpdateUserId = CurrentUserId;
         user.UpdatedAt = DateTime.UtcNow;
 
@@ -149,6 +151,9 @@ public class UsersController : ControllerBase
         FirstName = user.FirstName,
         LastName = user.LastName,
         RoleId = user.RoleId,
-        IsActive = user.IsActive
+        IsActive = user.IsActive,
+        DateOfBirth = user.DateOfBirth,
+        Gender = user.Gender,
+        CreatedAt = user.CreatedAt
     };
 }

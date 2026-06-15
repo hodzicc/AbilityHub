@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using AbilityHub.Auth.Controllers.DTOs;
 using AbilityHub.Auth.Services.Interfaces;
+using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Auth.Controllers;
 
@@ -12,10 +13,35 @@ namespace AbilityHub.Auth.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IUserService _userService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IUserService userService)
     {
         _authService = authService;
+        _userService = userService;
+    }
+
+    // POST: api/auth/register — public endpoint to create a Parent account.
+    [HttpPost("register")]
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> Register([FromBody] CreateUserRequest request)
+    {
+        request.RoleId = Roles.ParentId;
+        request.GuardianId = null;
+
+        var result = await _userService.CreateUserAsync(request, guardianId: null);
+
+        if (!result.Success)
+            return BadRequest(new ApiError("registration_failed", result.Message));
+
+        // Auto-login after registration
+        var loginResult = await _authService.LoginAsync(new AuthRequest
+        {
+            Email = request.Email,
+            Password = request.Password
+        });
+
+        return loginResult.Success ? Ok(loginResult) : StatusCode(500);
     }
 
     // POST: api/auth/login

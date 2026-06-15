@@ -28,6 +28,18 @@ public class Application : IAuditable
     /// <summary>Whether the app is available to be assigned to children.</summary>
     public bool IsActive { get; set; } = true;
 
+    // Display / UI fields
+    /// <summary>E.g. "education", "speech", "motor", "daily", "games".</summary>
+    public string Category { get; set; } = string.Empty;
+    /// <summary>Lucide icon component name, e.g. "BookOpen".</summary>
+    public string IconName { get; set; } = "AppWindow";
+    /// <summary>Hex colour string, e.g. "#4F46E5".</summary>
+    public string Color { get; set; } = "#4F46E5";
+    public int MinAge { get; set; } = 0;
+    public int MaxAge { get; set; } = 18;
+    /// <summary>JSON array of feature strings.</summary>
+    public string FeaturesJson { get; set; } = "[]";
+
     public Guid CreateUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? UpdateUserId { get; set; }

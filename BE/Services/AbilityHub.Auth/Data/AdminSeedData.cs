@@ -1,5 +1,7 @@
 using AbilityHub.Auth.Entities;
 using AbilityHub.Auth.Security;
+using AbilityHub.Shared.Events;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace AbilityHub.Auth.Data
@@ -14,7 +16,11 @@ namespace AbilityHub.Auth.Data
     {
         public const string AdminEmail = "admin@abilityhub.local";
 
-        public static async Task InitializeAsync(AuthDbContext db, IPasswordHasher passwordHasher, IConfiguration config)
+        public static async Task InitializeAsync(
+            AuthDbContext db,
+            IPasswordHasher passwordHasher,
+            IConfiguration config,
+            IPublishEndpoint publishEndpoint)
         {
             if (await db.Credentials.AnyAsync(c => c.Email == AdminEmail))
                 return;
@@ -24,16 +30,25 @@ namespace AbilityHub.Auth.Data
                 return; // roles not seeded yet
 
             var password = config["Seed:AdminPassword"] ?? "ChangeMe123!";
+            var adminId = Guid.NewGuid();
 
             db.Credentials.Add(new Credential
             {
-                Id = Guid.NewGuid(),
+                Id = adminId,
                 Email = AdminEmail,
                 PasswordHash = passwordHasher.Hash(password),
                 RoleId = adminRole.Id
             });
 
             await db.SaveChangesAsync();
+
+            // Publish event so the Users service creates the admin profile.
+            await publishEndpoint.Publish(new UserRegistered(
+                UserId: adminId,
+                Email: AdminEmail,
+                FirstName: "Admin",
+                LastName: "AbilityHub",
+                RoleId: adminRole.Id));
         }
     }
 }

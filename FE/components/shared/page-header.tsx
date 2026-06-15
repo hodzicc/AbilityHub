@@ -11,13 +11,13 @@ export function PageHeader({ title, description, children, className }: PageHead
   return (
     <div className={cn('flex flex-col gap-4 pb-6 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">{title}</h1>
         {description && (
-          <p className="text-muted-foreground text-pretty">{description}</p>
+          <p className="text-muted-foreground text-pretty max-w-prose">{description}</p>
         )}
       </div>
       {children && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {children}
         </div>
       )}
