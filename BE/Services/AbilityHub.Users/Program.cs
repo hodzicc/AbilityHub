@@ -60,6 +60,7 @@ builder.Services.AddAbilityHubMessageBus(builder.Configuration,
     {
         x.AddConsumer<UserRegisteredConsumer>();
         x.AddConsumer<UserDeactivatedConsumer>();
+        x.AddConsumer<UserActivatedConsumer>();
     });
 
 var app = builder.Build();

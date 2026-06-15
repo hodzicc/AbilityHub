@@ -16,6 +16,9 @@ import {
   AppWindow,
   ArrowRight,
   Users,
+  Pencil,
+  Power,
+  PowerOff,
 } from 'lucide-react'
 
 const iconMap: Record<string, React.ElementType> = {
@@ -25,9 +28,12 @@ const iconMap: Record<string, React.ElementType> = {
 interface AppCardProps {
   app: Application
   assignedCount?: number
+  isAdmin?: boolean
+  onEdit?: () => void
+  onToggleActive?: () => void
 }
 
-export function AppCard({ app, assignedCount = 0 }: AppCardProps) {
+export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onToggleActive }: AppCardProps) {
   const { t } = useTranslation()
   const Icon = iconMap[app.icon] || AppWindow
   const color = app.color || '#6366f1'
@@ -70,27 +76,38 @@ export function AppCard({ app, assignedCount = 0 }: AppCardProps) {
 
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t('applications.ageRange')}</span>
-          <span className="font-medium">{app.minAge}–{app.maxAge} {t('children.years')}</span>
+          <span className="font-medium">{app.minAge}-{app.maxAge} {t('children.years')}</span>
         </div>
 
-        {assignedCount > 0 && (
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Users className="h-3.5 w-3.5" />
-            <span>{assignedCount} {assignedCount === 1 ? 'dijete' : 'djece'}</span>
-          </div>
-        )}
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-1 group/btn hover:border-primary hover:text-primary"
-          asChild
-        >
-          <Link href={`/dashboard/applications/${app.id}`}>
-            {t('applications.details')}
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 group/btn hover:border-primary hover:text-primary"
+            asChild
+          >
+            <Link href={`/dashboard/applications/${app.id}`}>
+              {t('applications.details')}
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+            </Link>
+          </Button>
+          {isAdmin && onEdit && (
+            <Button variant="outline" size="icon" className="shrink-0" title="Uredi aplikaciju" onClick={onEdit}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {isAdmin && onToggleActive && (
+            <Button
+              variant="outline"
+              size="icon"
+              className={`shrink-0 ${app.isActive ? 'text-destructive hover:text-destructive' : ''}`}
+              title={app.isActive ? 'Deaktiviraj aplikaciju' : 'Aktiviraj aplikaciju'}
+              onClick={onToggleActive}
+            >
+              {app.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

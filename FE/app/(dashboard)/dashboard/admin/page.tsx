@@ -33,12 +33,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Activity, Search, ShieldAlert, ShieldCheck, Users, UserPlus, Loader2, ChevronDown } from 'lucide-react'
+import { ConfirmationDialog } from '@/components/shared'
+import { Activity, Search, ShieldAlert, ShieldCheck, Users, UserPlus, Loader2, Pencil, Power, PowerOff } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   apiGetAllUsers,
   apiGetApps,
+  apiGetChildren,
   apiCreateUser,
+  apiUpdateProfile,
+  apiActivateUser,
+  apiDeactivateUser,
   type UserProfileResponse,
 } from '@/lib/api'
 
@@ -54,16 +59,33 @@ const EMPTY_FORM: NewUserForm = {
   firstName: '', lastName: '', email: '', password: '', roleId: '2',
 }
 
+interface EditUserForm {
+  firstName: string
+  lastName: string
+  dateOfBirth: string
+  gender: string
+}
+
+const EMPTY_EDIT_FORM: EditUserForm = {
+  firstName: '', lastName: '', dateOfBirth: '', gender: 'male',
+}
+
 export default function AdminPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [users, setUsers] = useState<UserProfileResponse[]>([])
+  const [childrenByParent, setChildrenByParent] = useState<Record<string, UserProfileResponse[]>>({})
   const [appsCount, setAppsCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [form, setForm] = useState<NewUserForm>(EMPTY_FORM)
   const [isCreating, setIsCreating] = useState(false)
+  const [editUser, setEditUser] = useState<UserProfileResponse | null>(null)
+  const [editForm, setEditForm] = useState<EditUserForm>(EMPTY_EDIT_FORM)
+  const [isEditSaving, setIsEditSaving] = useState(false)
+  const [deactivateUser, setDeactivateUser] = useState<UserProfileResponse | null>(null)
+  const [isToggling, setIsToggling] = useState<string | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -74,6 +96,15 @@ export default function AdminPage() {
       ])
       setUsers(usersData.items)
       setAppsCount(appsData.length)
+
+      const parents = usersData.items.filter(u => u.roleId === 2)
+      const childrenMap: Record<string, UserProfileResponse[]> = {}
+      await Promise.all(
+        parents.map(async parent => {
+          childrenMap[parent.id] = await apiGetChildren(parent.id).catch(() => [])
+        })
+      )
+      setChildrenByParent(childrenMap)
     } catch {
       toast.error('Greška pri učitavanju podataka')
     } finally {
@@ -133,6 +164,71 @@ export default function AdminPage() {
       toast.error('Greška pri kreiranju korisnika')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const openEdit = (item: UserProfileResponse) => {
+    setEditUser(item)
+    setEditForm({
+      firstName: item.firstName,
+      lastName: item.lastName,
+      dateOfBirth: item.dateOfBirth ? item.dateOfBirth.slice(0, 10) : '',
+      gender: item.gender || 'male',
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editUser) return
+    if (!editForm.firstName || !editForm.lastName) {
+      toast.error('Ime i prezime su obavezni')
+      return
+    }
+    setIsEditSaving(true)
+    try {
+      await apiUpdateProfile(editUser.id, {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        ...(editUser.roleId === 3 ? {
+          dateOfBirth: editForm.dateOfBirth ? new Date(editForm.dateOfBirth).toISOString() : undefined,
+          gender: editForm.gender,
+        } : {}),
+      })
+      toast.success('Korisnik ažuriran')
+      setEditUser(null)
+      await loadData()
+    } catch {
+      toast.error('Greška pri ažuriranju korisnika')
+    } finally {
+      setIsEditSaving(false)
+    }
+  }
+
+  const handleActivate = async (item: UserProfileResponse) => {
+    setIsToggling(item.id)
+    try {
+      await apiActivateUser(item.id)
+      toast.success(`Korisnik ${item.firstName} ${item.lastName} aktiviran`)
+      await loadData()
+    } catch {
+      toast.error('Greška pri aktivaciji korisnika')
+    } finally {
+      setIsToggling(null)
+    }
+  }
+
+  const handleConfirmDeactivate = async () => {
+    if (!deactivateUser) return
+    setIsToggling(deactivateUser.id)
+    try {
+      await apiDeactivateUser(deactivateUser.id)
+      toast.success(`Korisnik ${deactivateUser.firstName} ${deactivateUser.lastName} deaktiviran`)
+      setDeactivateUser(null)
+      await loadData()
+    } catch {
+      toast.error('Greška pri deaktivaciji korisnika')
+      setDeactivateUser(null)
+    } finally {
+      setIsToggling(null)
     }
   }
 
@@ -217,7 +313,7 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-2">
               {users.filter(u => u.roleId === 2).map(parent => {
-                const children = users.filter(u => u.roleId === 3)
+                const children = childrenByParent[parent.id] ?? []
                 return (
                   <div key={parent.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -268,40 +364,82 @@ export default function AdminPage() {
                   <TableHead>Korisnik</TableHead>
                   <TableHead>{t('admin.role')}</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Akcije</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-xs font-semibold">
-                            {`${item.firstName} ${item.lastName}`.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{item.firstName} {item.lastName}</div>
-                          <div className="text-sm text-muted-foreground">{item.email}</div>
+                {filteredUsers.map(item => {
+                  const isSelf = item.id === user?.id
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-xs font-semibold">
+                              {`${item.firstName} ${item.lastName}`.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{item.firstName} {item.lastName}</div>
+                            <div className="text-sm text-muted-foreground">{item.email}</div>
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={item.roleId === 1 ? 'default' : 'secondary'}>
-                        {roleLabel(item.roleId)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={item.isActive
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0'
-                          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-0'}
-                      >
-                        {item.isActive ? t('common.active') : t('common.inactive')}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={item.roleId === 1 ? 'default' : 'secondary'}>
+                          {roleLabel(item.roleId)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={item.isActive
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-0'}
+                        >
+                          {item.isActive ? t('common.active') : t('common.inactive')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            title="Uredi korisnika"
+                            onClick={() => openEdit(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {!isSelf && (
+                            item.isActive ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                title="Deaktiviraj korisnika"
+                                disabled={isToggling === item.id}
+                                onClick={() => setDeactivateUser(item)}
+                              >
+                                <PowerOff className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
+                                title="Aktiviraj korisnika"
+                                disabled={isToggling === item.id}
+                                onClick={() => handleActivate(item)}
+                              >
+                                <Power className="h-4 w-4" />
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -395,6 +533,95 @@ export default function AdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit user dialog */}
+      <Dialog open={!!editUser} onOpenChange={open => { if (!open) { setEditUser(null); setEditForm(EMPTY_EDIT_FORM) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Uredi korisnika</DialogTitle>
+            <DialogDescription>
+              {editUser && `Izmijeni podatke za ${editUser.firstName} ${editUser.lastName} (${roleLabel(editUser.roleId)}).`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="editFirstName">Ime</Label>
+                <Input
+                  id="editFirstName"
+                  value={editForm.firstName}
+                  onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                  disabled={isEditSaving}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editLastName">Prezime</Label>
+                <Input
+                  id="editLastName"
+                  value={editForm.lastName}
+                  onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                  disabled={isEditSaving}
+                />
+              </div>
+            </div>
+
+            {editUser?.roleId === 3 && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="editDob">Datum rođenja</Label>
+                  <Input
+                    id="editDob"
+                    type="date"
+                    value={editForm.dateOfBirth}
+                    onChange={e => setEditForm(f => ({ ...f, dateOfBirth: e.target.value }))}
+                    disabled={isEditSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pol</Label>
+                  <Select
+                    value={editForm.gender}
+                    onValueChange={v => setEditForm(f => ({ ...f, gender: v }))}
+                    disabled={isEditSaving}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">{t('children.male')}</SelectItem>
+                      <SelectItem value="female">{t('children.female')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUser(null)} disabled={isEditSaving}>
+              Odustani
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isEditSaving}>
+              {isEditSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sačuvaj izmjene
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deactivate user confirmation */}
+      <ConfirmationDialog
+        open={!!deactivateUser}
+        onOpenChange={(open) => !open && setDeactivateUser(null)}
+        title="Deaktiviraj korisnika"
+        description={deactivateUser
+          ? `Da li ste sigurni da želite deaktivirati korisnika "${deactivateUser.firstName} ${deactivateUser.lastName}"? Korisnik se neće moći prijaviti dok ne bude ponovo aktiviran.`
+          : ''}
+        confirmLabel="Deaktiviraj"
+        variant="destructive"
+        onConfirm={handleConfirmDeactivate}
+      />
     </div>
   )
 }

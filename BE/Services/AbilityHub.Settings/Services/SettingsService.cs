@@ -27,6 +27,12 @@ public class SettingsService(
         await _publishEndpoint.Publish(new PreferencesUpdated(childId, applicationId));
     }
 
+    public async Task ClearAppPreferencesAsync(Guid childId, Guid applicationId)
+    {
+        await _preferences.DeleteForAppAsync(childId, applicationId);
+        await _publishEndpoint.Publish(new PreferencesUpdated(childId, applicationId));
+    }
+
     public async Task<RestrictionResponse> GetRestrictionAsync(Guid childId, Guid applicationId)
     {
         var restriction = await _restrictions.GetAsync(childId, applicationId);

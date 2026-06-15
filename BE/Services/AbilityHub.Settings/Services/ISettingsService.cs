@@ -7,6 +7,9 @@ public interface ISettingsService
     Task<Dictionary<string, string>> GetPreferencesAsync(Guid childId, Guid? applicationId);
     Task SetPreferencesAsync(Guid childId, Guid? applicationId, IReadOnlyDictionary<string, string> values);
 
+    /// <summary>Removes all per-app preference overrides, so the app falls back to the child's global defaults.</summary>
+    Task ClearAppPreferencesAsync(Guid childId, Guid applicationId);
+
     Task<RestrictionResponse> GetRestrictionAsync(Guid childId, Guid applicationId);
     Task SetRestrictionAsync(Guid childId, Guid applicationId, RestrictionRequest request, Guid updatedByGuardianId);
 

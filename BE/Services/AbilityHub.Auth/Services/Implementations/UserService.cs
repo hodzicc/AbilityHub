@@ -80,4 +80,18 @@ public class UserService(
 
         return true;
     }
+
+    public async Task<bool> ActivateUserAsync(Guid userId)
+    {
+        var credential = await _credentialRepository.GetByIdAsync(userId);
+        if (credential is null || credential.IsActive)
+            return false;
+
+        credential.IsActive = true;
+        await _credentialRepository.UpdateAsync(credential);
+
+        await _publishEndpoint.Publish(new UserActivated(userId));
+
+        return true;
+    }
 }

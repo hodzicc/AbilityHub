@@ -163,7 +163,7 @@ export default function ChildrenPage() {
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
           <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            Djecu kreiraju roditelji iz svog naloga. Administrator može pregledati i urediti profile, ali ne može kreirati djecu bez vezanog roditelja.
+            Djecu kreiraju roditelji iz svog naloga. Administrator ima pregled svih dječjih profila (samo za uvid) — upravljanje korisničkim nalozima dostupno je u Admin panelu.
           </p>
         </div>
       )}
@@ -193,11 +193,11 @@ export default function ChildrenPage() {
               key={child.id}
               child={child}
               progress={0}
-              onEdit={() => {
+              onEdit={user?.role === 'admin' ? undefined : () => {
                 setEditChild(child)
                 setIsAddDialogOpen(true)
               }}
-              onDelete={() => setDeleteChild(child)}
+              onDelete={user?.role === 'admin' ? undefined : () => setDeleteChild(child)}
             />
           ))}
         </div>

@@ -61,6 +61,15 @@ public class UsersController : ControllerBase
         return ok ? NoContent() : NotFound();
     }
 
+    // PUT: api/auth/users/{id}/activate — reactivate a previously deactivated account (admin only).
+    [HttpPut("{id:guid}/activate")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        var ok = await _service.ActivateUserAsync(id);
+        return ok ? NoContent() : NotFound();
+    }
+
     private Guid GetCurrentUserId()
         => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
             ? id

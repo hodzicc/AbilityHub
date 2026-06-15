@@ -270,6 +270,10 @@ export async function apiDeactivateUser(id: string): Promise<void> {
   return apiFetch(`/api/auth/users/${id}`, { method: 'DELETE' })
 }
 
+export async function apiActivateUser(id: string): Promise<void> {
+  return apiFetch(`/api/auth/users/${id}/activate`, { method: 'PUT' })
+}
+
 // ---------- Apps ----------
 
 export async function apiGetApps(includeInactive = false): Promise<ApplicationResponse[]> {
@@ -386,4 +390,9 @@ export async function apiGetResolvedSettings(
   appId: string
 ): Promise<ResolvedSettingsResponse> {
   return apiFetch(`/api/settings/children/${childId}/apps/${appId}/resolved`)
+}
+
+/** Removes all per-app preference overrides — the app falls back to the child's global preferences. */
+export async function apiClearAppPreferences(childId: string, appId: string): Promise<void> {
+  return apiFetch(`/api/settings/children/${childId}/apps/${appId}/preferences`, { method: 'DELETE' })
 }

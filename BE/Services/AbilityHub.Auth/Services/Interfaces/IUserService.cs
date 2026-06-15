@@ -9,5 +9,8 @@ namespace AbilityHub.Auth.Services.Interfaces
 
         /// <summary>Deactivates an account: blocks login, revokes tokens, announces UserDeactivated.</summary>
         Task<bool> DeactivateUserAsync(Guid userId);
+
+        /// <summary>Reactivates a previously deactivated account and announces UserActivated.</summary>
+        Task<bool> ActivateUserAsync(Guid userId);
     }
 }

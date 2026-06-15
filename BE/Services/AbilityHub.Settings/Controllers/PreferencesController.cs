@@ -56,6 +56,15 @@ public class PreferencesController : ControllerBase
         return NoContent();
     }
 
+    // DELETE: remove all per-app overrides — the app falls back to the child's global preferences.
+    [HttpDelete("apps/{appId:guid}/preferences")]
+    public async Task<IActionResult> ClearForApp(Guid childId, Guid appId)
+    {
+        if (!await CanManageChildAsync(childId)) return Forbid();
+        await _settings.ClearAppPreferencesAsync(childId, appId);
+        return NoContent();
+    }
+
     // GET: resolved (merged) settings for an app — what the app applies at login.
     // Readable by the child themselves, a guardian, or an admin.
     [HttpGet("apps/{appId:guid}/resolved")]

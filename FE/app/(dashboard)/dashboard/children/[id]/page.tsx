@@ -11,13 +11,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { calculateAge, formatDuration } from '@/lib/utils'
-import { cn } from '@/lib/utils'
-import type { Application, Child, FontSize, ColorScheme } from '@/lib/types'
-import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Loader2 } from 'lucide-react'
+import { PreferenceFields, PreferencePreview, AppPreferencesList } from '@/components/preferences'
+import { AssignAppsDialog, TimeLimitDialog } from '@/components/children'
+import { calculateAge, formatDuration, cn } from '@/lib/utils'
+import { DEFAULT_PREFERENCES, prefsToRecord, recordToPrefs } from '@/lib/preferences'
+import type { Application, Child, UIPreferences } from '@/lib/types'
+import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Loader2, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -35,8 +34,6 @@ import {
   apiGetRestriction,
   apiGetPreferences,
   apiSetPreferences,
-  apiGetAppPreferences,
-  apiSetAppPreferences,
   type DashboardResponse,
   type ApplicationResponse,
 } from '@/lib/api'
@@ -56,175 +53,6 @@ function responseToApp(r: ApplicationResponse): Application {
   }
 }
 
-const FONT_SIZES: { value: FontSize; label: string; size: string }[] = [
-  { value: 'small',       label: 'Mala',      size: '14px' },
-  { value: 'medium',      label: 'Srednja',   size: '16px' },
-  { value: 'large',       label: 'Velika',    size: '18px' },
-  { value: 'extra-large', label: 'Vrlo velika', size: '20px' },
-]
-
-const COLOR_SCHEMES: { value: ColorScheme; label: string; colors: string[] }[] = [
-  { value: 'default',       label: 'Zadana',          colors: ['#4F46E5', '#10B981', '#F59E0B'] },
-  { value: 'high-contrast', label: 'Visoki kontrast',  colors: ['#000000', '#FFFFFF', '#FF0000'] },
-  { value: 'pastel',        label: 'Pastelne',         colors: ['#A5B4FC', '#86EFAC', '#FDE68A'] },
-  { value: 'warm',          label: 'Tople',            colors: ['#F97316', '#FBBF24', '#EF4444'] },
-]
-
-interface ChildPrefs {
-  fontSize: FontSize
-  colorScheme: ColorScheme
-  reducedMotion: boolean
-  highContrast: boolean
-  soundEnabled: boolean
-}
-
-const DEFAULT_PREFS: ChildPrefs = {
-  fontSize: 'medium', colorScheme: 'default',
-  reducedMotion: false, highContrast: false, soundEnabled: true,
-}
-
-function prefsToRecord(p: ChildPrefs): Record<string, string> {
-  return {
-    fontSize: p.fontSize,
-    colorScheme: p.colorScheme,
-    reducedMotion: String(p.reducedMotion),
-    highContrast: String(p.highContrast),
-    soundEnabled: String(p.soundEnabled),
-  }
-}
-
-function recordToPrefs(r: Record<string, string>): ChildPrefs {
-  return {
-    fontSize: (r.fontSize as FontSize) || 'medium',
-    colorScheme: (r.colorScheme as ColorScheme) || 'default',
-    reducedMotion: r.reducedMotion === 'true',
-    highContrast: r.highContrast === 'true',
-    soundEnabled: r.soundEnabled !== 'false',
-  }
-}
-
-// ── per-app prefs editor ───────────────────────────────────────────────────
-
-function AppPrefsEditor({ childId, app }: { childId: string; app: Application }) {
-  const [prefs, setPrefs] = useState<ChildPrefs>(DEFAULT_PREFS)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    apiGetAppPreferences(childId, app.id)
-      .then(r => { if (Object.keys(r).length) setPrefs(recordToPrefs(r)) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [childId, app.id])
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await apiSetAppPreferences(childId, app.id, prefsToRecord(prefs))
-      toast.success(`Preferencije za ${app.name} sačuvane`)
-    } catch {
-      toast.error('Greška pri čuvanju')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) return <div className="h-32 animate-pulse rounded-lg bg-muted" />
-
-  return (
-    <Card className="border-0 shadow-sm">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ backgroundColor: app.color + '22', color: app.color }}>
-            <AppWindow className="h-4 w-4" />
-          </div>
-          <CardTitle className="text-base">{app.name}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Font size */}
-        <div>
-          <p className="mb-2 text-sm font-medium">Veličina teksta</p>
-          <RadioGroup
-            value={prefs.fontSize}
-            onValueChange={v => setPrefs(p => ({ ...p, fontSize: v as FontSize }))}
-            className="grid grid-cols-4 gap-2"
-          >
-            {FONT_SIZES.map(fs => (
-              <div key={fs.value}>
-                <RadioGroupItem value={fs.value} id={`${app.id}-${fs.value}`} className="peer sr-only" />
-                <Label
-                  htmlFor={`${app.id}-${fs.value}`}
-                  className={cn(
-                    'flex flex-col items-center rounded-lg border-2 border-muted bg-popover p-2 cursor-pointer text-xs',
-                    'peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
-                  )}
-                >
-                  <span style={{ fontSize: fs.size }} className="font-bold">Aa</span>
-                  {fs.label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        {/* Color scheme */}
-        <div>
-          <p className="mb-2 text-sm font-medium">Shema boja</p>
-          <RadioGroup
-            value={prefs.colorScheme}
-            onValueChange={v => setPrefs(p => ({ ...p, colorScheme: v as ColorScheme }))}
-            className="grid grid-cols-2 gap-2"
-          >
-            {COLOR_SCHEMES.map(cs => (
-              <div key={cs.value}>
-                <RadioGroupItem value={cs.value} id={`${app.id}-${cs.value}`} className="peer sr-only" />
-                <Label
-                  htmlFor={`${app.id}-${cs.value}`}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg border-2 border-muted bg-popover p-2 cursor-pointer text-xs',
-                    'peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
-                  )}
-                >
-                  <div className="flex gap-0.5">
-                    {cs.colors.map((c, i) => (
-                      <div key={i} className="h-4 w-4 rounded-full border" style={{ backgroundColor: c }} />
-                    ))}
-                  </div>
-                  {cs.label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        {/* Toggles */}
-        <div className="space-y-3">
-          {([
-            ['reducedMotion', 'Smanjena animacija'],
-            ['highContrast',  'Visoki kontrast'],
-            ['soundEnabled',  'Zvučni efekti'],
-          ] as [keyof ChildPrefs, string][]).map(([key, label]) => (
-            <div key={key} className="flex items-center justify-between">
-              <Label className="text-sm">{label}</Label>
-              <Switch
-                checked={prefs[key] as boolean}
-                onCheckedChange={v => setPrefs(p => ({ ...p, [key]: v }))}
-              />
-            </div>
-          ))}
-        </div>
-
-        <Button size="sm" className="w-full" onClick={handleSave} disabled={saving}>
-          {saving && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-          Sačuvaj za {app.name}
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
 // ── main page ──────────────────────────────────────────────────────────────
 
 export default function ChildProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -237,61 +65,67 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
     app: Application; dailyTimeLimit: number; totalMinutes: number
   }>>([])
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
-  const [globalPrefs, setGlobalPrefs] = useState<ChildPrefs>(DEFAULT_PREFS)
+  const [globalPrefs, setGlobalPrefs] = useState<UIPreferences>(DEFAULT_PREFERENCES)
   const [savingPrefs, setSavingPrefs] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [notFoundFlag, setNotFoundFlag] = useState(false)
+  const [isAssignAppsOpen, setIsAssignAppsOpen] = useState(false)
+  const [limitApp, setLimitApp] = useState<Application | null>(null)
 
   useEffect(() => {
-    const load = async () => {
-      if (!user) return
-      setIsLoading(true)
-      try {
-        const [profile, childApps, dash, rawPrefs] = await Promise.all([
-          apiGetUser(id),
-          apiGetChildApps(id),
-          apiGetDashboard(id).catch(() => null),
-          apiGetPreferences(id).catch(() => ({} as Record<string, string>)),
-        ])
-
-        setChild({
-          id: profile.id,
-          name: `${profile.firstName} ${profile.lastName}`.trim(),
-          firstName: profile.firstName, lastName: profile.lastName,
-          dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : new Date('2015-01-01'),
-          gender: (profile.gender as 'male' | 'female') ?? 'male',
-          parentId: user.id,
-          assignedApps: childApps.map(a => a.applicationId),
-          createdAt: new Date(profile.createdAt),
-        })
-        setDashboard(dash)
-        if (Object.keys(rawPrefs).length) setGlobalPrefs(recordToPrefs(rawPrefs))
-
-        const enriched = await Promise.all(
-          childApps.map(async ca => {
-            const [appData, restriction] = await Promise.all([
-              apiGetApp(ca.applicationId).catch(() => null),
-              apiGetRestriction(id, ca.applicationId).catch(() => ({ dailyTimeLimitMinutes: null, isBlocked: false })),
-            ])
-            if (!appData) return null
-            const perApp = dash?.perApp.find(p => p.applicationId === ca.applicationId)
-            return {
-              app: responseToApp(appData),
-              dailyTimeLimit: restriction.dailyTimeLimitMinutes ?? 0,
-              totalMinutes: perApp?.totalMinutes ?? 0,
-            }
-          })
-        )
-        setAssignedApps(enriched.filter(Boolean) as typeof enriched[number][])
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
-        else toast.error('Greška pri učitavanju profila')
-      } finally {
-        setIsLoading(false)
-      }
-    }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id])
+
+  const load = async () => {
+    if (!user) return
+    setIsLoading(true)
+    try {
+      const [profile, childApps, dash, rawPrefs] = await Promise.all([
+        apiGetUser(id),
+        apiGetChildApps(id),
+        apiGetDashboard(id).catch(() => null),
+        apiGetPreferences(id).catch(() => ({} as Record<string, string>)),
+      ])
+
+      setChild({
+        id: profile.id,
+        name: `${profile.firstName} ${profile.lastName}`.trim(),
+        firstName: profile.firstName, lastName: profile.lastName,
+        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : new Date('2015-01-01'),
+        gender: (profile.gender as 'male' | 'female') ?? 'male',
+        parentId: user.id,
+        assignedApps: childApps.map(a => a.applicationId),
+        createdAt: new Date(profile.createdAt),
+      })
+      setDashboard(dash)
+      if (Object.keys(rawPrefs).length) setGlobalPrefs(recordToPrefs(rawPrefs))
+
+      const enriched = await Promise.all(
+        childApps.map(async ca => {
+          const [appData, restriction] = await Promise.all([
+            apiGetApp(ca.applicationId).catch(() => null),
+            apiGetRestriction(id, ca.applicationId).catch(() => ({ dailyTimeLimitMinutes: null, isBlocked: false })),
+          ])
+          if (!appData) return null
+          const perApp = dash?.perApp.find(p => p.applicationId === ca.applicationId)
+          return {
+            app: responseToApp(appData),
+            dailyTimeLimit: restriction.dailyTimeLimitMinutes ?? 0,
+            totalMinutes: perApp?.totalMinutes ?? 0,
+          }
+        })
+      )
+      setAssignedApps(
+        enriched.filter((e): e is NonNullable<typeof e> => e !== null)
+      )
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
+      else toast.error('Greška pri učitavanju profila')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleSaveGlobalPrefs = async () => {
     setSavingPrefs(true)
@@ -315,6 +149,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
     )
   }
 
+  const isAdmin = user?.role === 'admin'
   const age = calculateAge(child.dateOfBirth)
   const totalUsage = dashboard?.totalUsageMinutes ?? 0
   const recommendations = dashboard?.recommendations ?? []
@@ -335,6 +170,15 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           </Link>
         </Button>
       </PageHeader>
+
+      {isAdmin && (
+        <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+          <p className="text-sm text-indigo-700 dark:text-indigo-300">
+            Administratorski prikaz — uvid u profil i korištenje. Dodjelu aplikacija i postavke uređuje roditelj.
+          </p>
+        </div>
+      )}
 
       {/* Profile header */}
       <Card className="border-0 shadow-sm">
@@ -398,11 +242,19 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <TabsList>
           <TabsTrigger value="apps">{t('children.assignedApps')}</TabsTrigger>
           <TabsTrigger value="progress">{t('children.progress')}</TabsTrigger>
-          <TabsTrigger value="prefs">Preferencije</TabsTrigger>
+          {!isAdmin && <TabsTrigger value="prefs">Preferencije</TabsTrigger>}
         </TabsList>
 
         {/* Apps tab */}
         <TabsContent value="apps" className="space-y-4">
+          {!isAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => setIsAssignAppsOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t('children.assignApps')}
+              </Button>
+            </div>
+          )}
           {assignedApps.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {assignedApps.map(({ app, dailyTimeLimit, totalMinutes }) => (
@@ -428,12 +280,25 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                       </span>
                       <span className="font-semibold">{formatDuration(totalMinutes)}</span>
                     </div>
-                    {dailyTimeLimit > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{t('applications.dailyLimit')}</span>
-                        <span className="font-semibold">{dailyTimeLimit} min</span>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{t('applications.dailyLimit')}</span>
+                      <span className="flex items-center gap-1">
+                        <span className="font-semibold">
+                          {dailyTimeLimit > 0 ? `${dailyTimeLimit} min` : 'Bez ograničenja'}
+                        </span>
+                        {!isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                            title="Uredi vremensko ograničenje"
+                            onClick={() => setLimitApp(app)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -441,9 +306,12 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           ) : (
             <Card className="border-0 shadow-sm p-8 text-center">
               <p className="text-muted-foreground">{t('children.noAppsAssigned')}</p>
-              <Button className="mt-4" asChild>
-                <Link href="/dashboard/applications">{t('children.assignApps')}</Link>
-              </Button>
+              {!isAdmin && (
+                <Button className="mt-4" onClick={() => setIsAssignAppsOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('children.assignApps')}
+                </Button>
+              )}
             </Card>
           )}
         </TabsContent>
@@ -503,7 +371,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           </div>
         </TabsContent>
 
-        {/* Preferences tab */}
+        {/* Preferences tab (parent only) */}
+        {!isAdmin && (
         <TabsContent value="prefs" className="space-y-6">
           {/* Global preferences */}
           <Card className="border-0 shadow-sm">
@@ -513,88 +382,20 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                 Globalne preferencije
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Podrazumijevane postavke za sve aplikacije. Svaka aplikacija može imati vlastite izmjene ispod.
+                Podrazumijevane postavke za sve aplikacije. Svaka aplikacija može po potrebi imati vlastite izmjene.
               </p>
             </CardHeader>
-            <CardContent className="space-y-5">
-              {/* Font size */}
-              <div>
-                <p className="mb-2 text-sm font-medium">Veličina teksta</p>
-                <RadioGroup
-                  value={globalPrefs.fontSize}
-                  onValueChange={v => setGlobalPrefs(p => ({ ...p, fontSize: v as FontSize }))}
-                  className="grid grid-cols-4 gap-2"
-                >
-                  {FONT_SIZES.map(fs => (
-                    <div key={fs.value}>
-                      <RadioGroupItem value={fs.value} id={`g-${fs.value}`} className="peer sr-only" />
-                      <Label htmlFor={`g-${fs.value}`}
-                        className={cn(
-                          'flex flex-col items-center rounded-lg border-2 border-muted bg-popover p-3 cursor-pointer text-xs',
-                          'peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
-                        )}
-                      >
-                        <span style={{ fontSize: fs.size }} className="font-bold mb-1">Aa</span>
-                        {fs.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+            <CardContent>
+              <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
+                <div className="space-y-5">
+                  <PreferenceFields value={globalPrefs} onChange={setGlobalPrefs} idPrefix="global" />
+                  <Button onClick={handleSaveGlobalPrefs} disabled={savingPrefs}>
+                    {savingPrefs && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sačuvaj globalne preferencije
+                  </Button>
+                </div>
+                <PreferencePreview preferences={globalPrefs} className="lg:w-64" />
               </div>
-
-              {/* Color scheme */}
-              <div>
-                <p className="mb-2 text-sm font-medium">Shema boja</p>
-                <RadioGroup
-                  value={globalPrefs.colorScheme}
-                  onValueChange={v => setGlobalPrefs(p => ({ ...p, colorScheme: v as ColorScheme }))}
-                  className="grid grid-cols-2 gap-2"
-                >
-                  {COLOR_SCHEMES.map(cs => (
-                    <div key={cs.value}>
-                      <RadioGroupItem value={cs.value} id={`g-${cs.value}`} className="peer sr-only" />
-                      <Label htmlFor={`g-${cs.value}`}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg border-2 border-muted bg-popover p-3 cursor-pointer text-sm',
-                          'peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
-                        )}
-                      >
-                        <div className="flex gap-1">
-                          {cs.colors.map((c, i) => (
-                            <div key={i} className="h-4 w-4 rounded-full border" style={{ backgroundColor: c }} />
-                          ))}
-                        </div>
-                        {cs.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-3">
-                {([
-                  ['reducedMotion', 'Smanjena animacija', 'Smanji pokrete i prijelaze'],
-                  ['highContrast',  'Visoki kontrast',   'Povećaj kontrast teksta i elemenata'],
-                  ['soundEnabled',  'Zvučni efekti',     'Omogući zvukove u aplikacijama'],
-                ] as [keyof ChildPrefs, string, string][]).map(([key, label, desc]) => (
-                  <div key={key} className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <Label className="text-sm font-medium">{label}</Label>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
-                    </div>
-                    <Switch
-                      checked={globalPrefs[key] as boolean}
-                      onCheckedChange={v => setGlobalPrefs(p => ({ ...p, [key]: v }))}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <Button onClick={handleSaveGlobalPrefs} disabled={savingPrefs}>
-                {savingPrefs && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sačuvaj globalne preferencije
-              </Button>
             </CardContent>
           </Card>
 
@@ -603,17 +404,38 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
             <div>
               <h3 className="mb-3 text-base font-semibold">Preferencije po aplikaciji</h3>
               <p className="mb-4 text-sm text-muted-foreground">
-                Ove postavke imaju prednost nad globalnim za svaku aplikaciju posebno.
+                Pregled koje aplikacije koriste globalne postavke, a koje imaju prilagođene. Kliknite na aplikaciju za izmjenu.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {assignedApps.map(({ app }) => (
-                  <AppPrefsEditor key={app.id} childId={id} app={app} />
-                ))}
-              </div>
+              <AppPreferencesList childId={id} apps={assignedApps.map(({ app }) => app)} globalPrefs={globalPrefs} />
             </div>
           )}
         </TabsContent>
+        )}
       </Tabs>
+
+      {/* Bulk-assign apps to this child (parent only) */}
+      {!isAdmin && (
+        <AssignAppsDialog
+          open={isAssignAppsOpen}
+          onOpenChange={setIsAssignAppsOpen}
+          childId={id}
+          childName={child.name}
+          assignedAppIds={child.assignedApps}
+          onAssigned={load}
+        />
+      )}
+
+      {/* Edit daily time limit for a single assigned app (parent only) */}
+      {!isAdmin && limitApp && (
+        <TimeLimitDialog
+          open={!!limitApp}
+          onOpenChange={(open) => !open && setLimitApp(null)}
+          childId={id}
+          appId={limitApp.id}
+          appName={limitApp.name}
+          onSaved={load}
+        />
+      )}
     </div>
   )
 }

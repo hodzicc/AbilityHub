@@ -5,7 +5,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth, useTranslation } from '@/components/providers'
 import { PageHeader, ConfirmationDialog } from '@/components/shared'
-import { AssignAppDialog } from '@/components/applications'
+import { AssignAppDialog, AppFormDialog } from '@/components/applications'
+import { AppPreferenceDialog } from '@/components/preferences'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,16 +28,21 @@ import {
   PlugZap,
   AppWindow,
   PowerOff,
+  Power,
+  Settings2,
+  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   apiGetApp,
   apiGetChildren,
+  apiGetAllUsers,
   apiGetChildApps,
   apiAssignApp,
   apiRemoveApp,
   apiGetRestriction,
   apiDeactivateApp,
+  apiUpdateApp,
   type ApplicationResponse,
   type UserProfileResponse,
 } from '@/lib/api'
@@ -76,8 +82,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const { id } = use(params)
   const { t } = useTranslation()
   const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   const [app, setApp] = useState<Application | null>(null)
+  const [rawApp, setRawApp] = useState<ApplicationResponse | null>(null)
   const [assignedChildren, setAssignedChildren] = useState<AssignedChild[]>([])
   const [availableChildren, setAvailableChildren] = useState<Child[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -85,6 +93,8 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [removeChildId, setRemoveChildId] = useState<string | null>(null)
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false)
+  const [prefsChild, setPrefsChild] = useState<Child | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const loadData = async () => {
     if (!user) return
@@ -92,10 +102,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     try {
       const [appData, children] = await Promise.all([
         apiGetApp(id),
-        apiGetChildren(user.id).catch(() => [] as UserProfileResponse[]),
+        isAdmin
+          ? apiGetAllUsers(1, 200).then(r => r.items.filter(u => u.roleId === 3)).catch(() => [] as UserProfileResponse[])
+          : apiGetChildren(user.id).catch(() => [] as UserProfileResponse[]),
       ])
 
       setApp(responseToApp(appData))
+      setRawApp(appData)
 
       const assigned: AssignedChild[] = []
       const available: Child[] = []
@@ -188,6 +201,17 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
+  const handleActivate = async () => {
+    if (!rawApp) return
+    try {
+      await apiUpdateApp(id, { ...rawApp, isActive: true })
+      toast.success('Aplikacija aktivirana')
+      await loadData()
+    } catch {
+      toast.error('Greška pri aktivaciji aplikacije')
+    }
+  }
+
   if (notFoundFlag) notFound()
 
   if (isLoading || !app) {
@@ -206,7 +230,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-6">
       <PageHeader title={t('applications.details')}>
         <div className="flex gap-2">
-          {user?.role === 'admin' && app.isActive && (
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Uredi
+            </Button>
+          )}
+          {isAdmin && app.isActive && (
             <Button
               variant="outline"
               className="text-destructive hover:text-destructive"
@@ -214,6 +244,12 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             >
               <PowerOff className="mr-2 h-4 w-4" />
               Deaktiviraj
+            </Button>
+          )}
+          {isAdmin && !app.isActive && (
+            <Button variant="outline" onClick={handleActivate}>
+              <Power className="mr-2 h-4 w-4" />
+              Aktiviraj
             </Button>
           )}
           <Button variant="outline" asChild>
@@ -258,10 +294,12 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                 <p className="text-3xl font-bold">{assignedChildren.length}</p>
                 <p className="text-sm text-muted-foreground">{t('applications.assigned')}</p>
               </div>
-              <Button onClick={() => setIsAssignDialogOpen(true)} disabled={availableChildren.length === 0}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('children.assignApps')}
-              </Button>
+              {!isAdmin && (
+                <Button onClick={() => setIsAssignDialogOpen(true)} disabled={availableChildren.length === 0}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('children.assignApps')}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -347,14 +385,27 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                       )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setRemoveChildId(child.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!isAdmin && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-foreground"
+                        title={`Postavke za ${child.name}`}
+                        onClick={() => setPrefsChild(child)}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setRemoveChildId(child.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -362,39 +413,45 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>Nema dodijeljene djece</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setIsAssignDialogOpen(true)}
-                disabled={availableChildren.length === 0}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {t('children.assignApps')}
-              </Button>
+              {!isAdmin && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setIsAssignDialogOpen(true)}
+                  disabled={availableChildren.length === 0}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('children.assignApps')}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Assign Dialog */}
-      <AssignAppDialog
-        open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
-        app={app}
-        onAssign={handleAssign}
-        availableChildren={availableChildren}
-      />
+      {!isAdmin && (
+        <AssignAppDialog
+          open={isAssignDialogOpen}
+          onOpenChange={setIsAssignDialogOpen}
+          app={app}
+          onAssign={handleAssign}
+          availableChildren={availableChildren}
+        />
+      )}
 
       {/* Remove child from app confirmation */}
-      <ConfirmationDialog
-        open={!!removeChildId}
-        onOpenChange={(open) => !open && setRemoveChildId(null)}
-        title={t('children.removeApp')}
-        description="Da li ste sigurni da želite ukloniti ovu aplikaciju od djeteta?"
-        confirmLabel={t('common.delete')}
-        variant="destructive"
-        onConfirm={handleRemove}
-      />
+      {!isAdmin && (
+        <ConfirmationDialog
+          open={!!removeChildId}
+          onOpenChange={(open) => !open && setRemoveChildId(null)}
+          title={t('children.removeApp')}
+          description="Da li ste sigurni da želite ukloniti ovu aplikaciju od djeteta?"
+          confirmLabel={t('common.delete')}
+          variant="destructive"
+          onConfirm={handleRemove}
+        />
+      )}
 
       {/* Deactivate app confirmation (admin) */}
       <ConfirmationDialog
@@ -406,6 +463,27 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
         variant="destructive"
         onConfirm={handleDeactivate}
       />
+
+      {/* Edit app dialog (admin) */}
+      {isAdmin && rawApp && (
+        <AppFormDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          app={rawApp}
+          onSaved={loadData}
+        />
+      )}
+
+      {/* Per-child preferences for this app */}
+      {!isAdmin && prefsChild && (
+        <AppPreferenceDialog
+          open={!!prefsChild}
+          onOpenChange={(open) => !open && setPrefsChild(null)}
+          childId={prefsChild.id}
+          childName={prefsChild.name}
+          app={app}
+        />
+      )}
     </div>
   )
 }
