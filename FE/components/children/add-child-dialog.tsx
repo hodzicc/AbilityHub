@@ -86,31 +86,31 @@ export function AddChildDialog({ open, onOpenChange, onAdd, editChild }: AddChil
           </DialogTitle>
           <DialogDescription>
             {editChild
-              ? 'Uredite informacije o djetetu'
-              : 'Dodajte novo dijete za praćenje napretka'}
+              ? t('children.editDialogDesc')
+              : t('children.addDialogDesc')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Ime</Label>
+                <Label htmlFor="firstName">{t('children.firstName')}</Label>
                 <Input
                   id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Marko"
+                  placeholder={t('children.firstNamePlaceholder')}
                   disabled={isLoading}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Prezime</Label>
+                <Label htmlFor="lastName">{t('children.lastName')}</Label>
                 <Input
                   id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Hodžić"
+                  placeholder={t('children.lastNamePlaceholder')}
                   disabled={isLoading}
                   required
                 />
@@ -136,7 +136,7 @@ export function AddChildDialog({ open, onOpenChange, onAdd, editChild }: AddChil
                 disabled={isLoading}
               >
                 <SelectTrigger id="gender">
-                  <SelectValue placeholder="Odaberite spol" />
+                  <SelectValue placeholder={t('children.selectGenderPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="male">{t('children.male')}</SelectItem>

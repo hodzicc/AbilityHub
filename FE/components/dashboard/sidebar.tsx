@@ -114,7 +114,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 <div className={cn('my-3 border-t border-sidebar-border', isCollapsed && 'mx-1')} />
                 {!isCollapsed && (
                   <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-                    Admin
+                    {t('admin.roleShort.admin')}
                   </p>
                 )}
                 {adminItems.map((item) => {
@@ -154,7 +154,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.name}</p>
                 <p className="truncate text-xs text-sidebar-foreground/50">
-                  {user?.role === 'admin' ? 'Administrator' : 'Roditelj'}
+                  {user?.role === 'admin' ? t('admin.roleShort.admin') : t('admin.roleShort.parent')}
                 </p>
               </div>
             </div>

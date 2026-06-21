@@ -46,17 +46,18 @@ import {
   apiDeactivateUser,
   type UserProfileResponse,
 } from '@/lib/api'
+import { ROLE_ID } from '@/lib/constants'
 
 interface NewUserForm {
   firstName: string
   lastName: string
   email: string
   password: string
-  roleId: '1' | '2'   // Admin=1, Parent=2
+  roleId: string
 }
 
 const EMPTY_FORM: NewUserForm = {
-  firstName: '', lastName: '', email: '', password: '', roleId: '2',
+  firstName: '', lastName: '', email: '', password: '', roleId: String(ROLE_ID.PARENT),
 }
 
 interface EditUserForm {
@@ -97,7 +98,7 @@ export default function AdminPage() {
       setUsers(usersData.items)
       setAppsCount(appsData.length)
 
-      const parents = usersData.items.filter(u => u.roleId === 2)
+      const parents = usersData.items.filter(u => u.roleId === ROLE_ID.PARENT)
       const childrenMap: Record<string, UserProfileResponse[]> = {}
       await Promise.all(
         parents.map(async parent => {
@@ -106,7 +107,7 @@ export default function AdminPage() {
       )
       setChildrenByParent(childrenMap)
     } catch {
-      toast.error('Greška pri učitavanju podataka')
+      toast.error(t('admin.loadError'))
     } finally {
       setIsLoading(false)
     }
@@ -126,21 +127,21 @@ export default function AdminPage() {
   }, [query, users])
 
   const roleLabel = (roleId: number) => {
-    if (roleId === 1) return 'Admin'
-    if (roleId === 2) return 'Roditelj'
-    return 'Dijete'
+    if (roleId === ROLE_ID.ADMIN) return t('admin.roleShort.admin')
+    if (roleId === ROLE_ID.PARENT) return t('admin.roleShort.parent')
+    return t('admin.roleShort.child')
   }
 
-  const parentCount = users.filter(u => u.roleId === 2).length
-  const childCount  = users.filter(u => u.roleId === 3).length
+  const parentCount = users.filter(u => u.roleId === ROLE_ID.PARENT).length
+  const childCount  = users.filter(u => u.roleId === ROLE_ID.CHILD).length
 
   const handleCreate = async () => {
     if (!form.firstName || !form.lastName || !form.email || !form.password) {
-      toast.error('Popunite sva polja')
+      toast.error(t('admin.requiredFields'))
       return
     }
     if (form.password.length < 6) {
-      toast.error('Lozinka mora imati najmanje 6 karaktera')
+      toast.error(t('admin.passwordTooShort'))
       return
     }
     setIsCreating(true)
@@ -153,15 +154,15 @@ export default function AdminPage() {
         roleId:    Number(form.roleId),
       })
       if (!result.success) {
-        toast.error(result.message || 'Greška pri kreiranju korisnika')
+        toast.error(result.message || t('admin.createError'))
         return
       }
-      toast.success(`Korisnik ${form.firstName} ${form.lastName} uspješno kreiran`)
+      toast.success(t('admin.createSuccess', { name: `${form.firstName} ${form.lastName}` }))
       setIsCreateOpen(false)
       setForm(EMPTY_FORM)
       await loadData()
     } catch {
-      toast.error('Greška pri kreiranju korisnika')
+      toast.error(t('admin.createError'))
     } finally {
       setIsCreating(false)
     }
@@ -180,7 +181,7 @@ export default function AdminPage() {
   const handleSaveEdit = async () => {
     if (!editUser) return
     if (!editForm.firstName || !editForm.lastName) {
-      toast.error('Ime i prezime su obavezni')
+      toast.error(t('admin.requiredNames'))
       return
     }
     setIsEditSaving(true)
@@ -188,16 +189,16 @@ export default function AdminPage() {
       await apiUpdateProfile(editUser.id, {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
-        ...(editUser.roleId === 3 ? {
+        ...(editUser.roleId === ROLE_ID.CHILD ? {
           dateOfBirth: editForm.dateOfBirth ? new Date(editForm.dateOfBirth).toISOString() : undefined,
           gender: editForm.gender,
         } : {}),
       })
-      toast.success('Korisnik ažuriran')
+      toast.success(t('admin.updatedToast'))
       setEditUser(null)
       await loadData()
     } catch {
-      toast.error('Greška pri ažuriranju korisnika')
+      toast.error(t('admin.updateError'))
     } finally {
       setIsEditSaving(false)
     }
@@ -207,10 +208,10 @@ export default function AdminPage() {
     setIsToggling(item.id)
     try {
       await apiActivateUser(item.id)
-      toast.success(`Korisnik ${item.firstName} ${item.lastName} aktiviran`)
+      toast.success(t('admin.activatedToast', { name: `${item.firstName} ${item.lastName}` }))
       await loadData()
     } catch {
-      toast.error('Greška pri aktivaciji korisnika')
+      toast.error(t('admin.activateError'))
     } finally {
       setIsToggling(null)
     }
@@ -221,11 +222,11 @@ export default function AdminPage() {
     setIsToggling(deactivateUser.id)
     try {
       await apiDeactivateUser(deactivateUser.id)
-      toast.success(`Korisnik ${deactivateUser.firstName} ${deactivateUser.lastName} deaktiviran`)
+      toast.success(t('admin.deactivatedToast', { name: `${deactivateUser.firstName} ${deactivateUser.lastName}` }))
       setDeactivateUser(null)
       await loadData()
     } catch {
-      toast.error('Greška pri deaktivaciji korisnika')
+      toast.error(t('admin.deactivateError'))
       setDeactivateUser(null)
     } finally {
       setIsToggling(null)
@@ -238,9 +239,9 @@ export default function AdminPage() {
         <PageHeader title={t('admin.title')} description={t('admin.subtitle')} />
         <Alert variant="destructive">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Pristup ograničen</AlertTitle>
+          <AlertTitle>{t('admin.accessRestrictedTitle')}</AlertTitle>
           <AlertDescription>
-            Administracijski panel je dostupan samo korisnicima sa administratorskom ulogom.
+            {t('admin.accessRestrictedDesc')}
           </AlertDescription>
         </Alert>
       </div>
@@ -255,7 +256,7 @@ export default function AdminPage() {
           className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
         >
           <UserPlus className="mr-2 h-4 w-4" />
-          Dodaj korisnika
+          {t('admin.addUser')}
         </Button>
       </PageHeader>
 
@@ -272,7 +273,7 @@ export default function AdminPage() {
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-400 to-orange-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white/80">Roditelji</CardTitle>
+            <CardTitle className="text-sm font-medium text-white/80">{t('admin.parents')}</CardTitle>
             <Activity className="h-4 w-4 text-white/60" />
           </CardHeader>
           <CardContent>
@@ -290,7 +291,7 @@ export default function AdminPage() {
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-400 to-purple-600 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-white/80">Aplikacije u registru</CardTitle>
+            <CardTitle className="text-sm font-medium text-white/80">{t('admin.appsInRegistry')}</CardTitle>
             <ShieldCheck className="h-4 w-4 text-white/60" />
           </CardHeader>
           <CardContent>
@@ -302,17 +303,17 @@ export default function AdminPage() {
       {/* Parents & children overview */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle>Roditelji i djeca</CardTitle>
-          <CardDescription>Pregled roditelja i njihovih dječjih profila.</CardDescription>
+          <CardTitle>{t('admin.parentsAndChildren')}</CardTitle>
+          <CardDescription>{t('admin.parentsAndChildrenDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="h-24 bg-muted animate-pulse rounded" />
-          ) : users.filter(u => u.roleId === 2).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nema registrovanih roditelja.</p>
+          ) : users.filter(u => u.roleId === ROLE_ID.PARENT).length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('admin.noParents')}</p>
           ) : (
             <div className="space-y-2">
-              {users.filter(u => u.roleId === 2).map(parent => {
+              {users.filter(u => u.roleId === ROLE_ID.PARENT).map(parent => {
                 const children = childrenByParent[parent.id] ?? []
                 return (
                   <div key={parent.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
@@ -328,7 +329,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      {children.length} {children.length === 1 ? 'dijete' : 'djece'}
+                      {children.length} {children.length === 1 ? t('admin.childCountOne') : t('admin.childCountMany')}
                     </Badge>
                   </div>
                 )
@@ -342,7 +343,7 @@ export default function AdminPage() {
       <Card className="border-0 shadow-sm">
         <CardHeader>
           <CardTitle>{t('admin.userManagement')}</CardTitle>
-          <CardDescription>Pregled svih korisnika sistema.</CardDescription>
+          <CardDescription>{t('admin.usersOverviewDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative max-w-sm">
@@ -350,7 +351,7 @@ export default function AdminPage() {
             <Input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Pretraži korisnike..."
+              placeholder={t('admin.searchUsersPlaceholder')}
               className="pl-9"
             />
           </div>
@@ -361,10 +362,10 @@ export default function AdminPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Korisnik</TableHead>
+                  <TableHead>{t('admin.userColumn')}</TableHead>
                   <TableHead>{t('admin.role')}</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Akcije</TableHead>
+                  <TableHead>{t('admin.status')}</TableHead>
+                  <TableHead className="text-right">{t('admin.actionsColumn')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -386,7 +387,7 @@ export default function AdminPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={item.roleId === 1 ? 'default' : 'secondary'}>
+                        <Badge variant={item.roleId === ROLE_ID.ADMIN ? 'default' : 'secondary'}>
                           {roleLabel(item.roleId)}
                         </Badge>
                       </TableCell>
@@ -405,7 +406,7 @@ export default function AdminPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            title="Uredi korisnika"
+                            title={t('admin.editUserAction')}
                             onClick={() => openEdit(item)}
                           >
                             <Pencil className="h-4 w-4" />
@@ -416,7 +417,7 @@ export default function AdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                title="Deaktiviraj korisnika"
+                                title={t('admin.deactivateUser')}
                                 disabled={isToggling === item.id}
                                 onClick={() => setDeactivateUser(item)}
                               >
@@ -427,7 +428,7 @@ export default function AdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
-                                title="Aktiviraj korisnika"
+                                title={t('admin.activateUser')}
                                 disabled={isToggling === item.id}
                                 onClick={() => handleActivate(item)}
                               >
@@ -450,73 +451,71 @@ export default function AdminPage() {
       <Dialog open={isCreateOpen} onOpenChange={open => { setIsCreateOpen(open); if (!open) setForm(EMPTY_FORM) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Dodaj korisnika</DialogTitle>
+            <DialogTitle>{t('admin.addUser')}</DialogTitle>
             <DialogDescription>
-              Kreirajte novi korisnički nalog. Roditeljem se dodjeljuje uloga Roditelja, a privilegovanim korisnicima Administratora.
+              {t('admin.createUserDialogDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Ime</Label>
+                <Label htmlFor="firstName">{t('children.firstName')}</Label>
                 <Input
                   id="firstName"
                   value={form.firstName}
                   onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                  placeholder="Amina"
                   disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">Prezime</Label>
+                <Label htmlFor="lastName">{t('children.lastName')}</Label>
                 <Input
                   id="lastName"
                   value={form.lastName}
                   onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                  placeholder="Hodžić"
                   disabled={isCreating}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="amina@example.com"
+                placeholder="name@example.com"
                 disabled={isCreating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Lozinka</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                placeholder="Min. 6 karaktera"
+                placeholder={t('admin.passwordPlaceholder')}
                 disabled={isCreating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Uloga</Label>
+              <Label>{t('admin.role')}</Label>
               <Select
                 value={form.roleId}
-                onValueChange={v => setForm(f => ({ ...f, roleId: v as '1' | '2' }))}
+                onValueChange={v => setForm(f => ({ ...f, roleId: v }))}
                 disabled={isCreating}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2">Roditelj / Staratelj</SelectItem>
-                  <SelectItem value="1">Administrator</SelectItem>
+                  <SelectItem value={String(ROLE_ID.PARENT)}>{t('admin.roleParentOption')}</SelectItem>
+                  <SelectItem value={String(ROLE_ID.ADMIN)}>{t('admin.roleAdminOption')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -524,11 +523,11 @@ export default function AdminPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating}>
-              Odustani
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate} disabled={isCreating}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Kreiraj korisnika
+              {t('admin.createUserAction')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -538,16 +537,16 @@ export default function AdminPage() {
       <Dialog open={!!editUser} onOpenChange={open => { if (!open) { setEditUser(null); setEditForm(EMPTY_EDIT_FORM) } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Uredi korisnika</DialogTitle>
+            <DialogTitle>{t('admin.editUser')}</DialogTitle>
             <DialogDescription>
-              {editUser && `Izmijeni podatke za ${editUser.firstName} ${editUser.lastName} (${roleLabel(editUser.roleId)}).`}
+              {editUser && t('admin.editUserDialogDesc', { name: `${editUser.firstName} ${editUser.lastName}`, role: roleLabel(editUser.roleId) })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="editFirstName">Ime</Label>
+                <Label htmlFor="editFirstName">{t('children.firstName')}</Label>
                 <Input
                   id="editFirstName"
                   value={editForm.firstName}
@@ -556,7 +555,7 @@ export default function AdminPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="editLastName">Prezime</Label>
+                <Label htmlFor="editLastName">{t('children.lastName')}</Label>
                 <Input
                   id="editLastName"
                   value={editForm.lastName}
@@ -566,10 +565,10 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {editUser?.roleId === 3 && (
+            {editUser?.roleId === ROLE_ID.CHILD && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="editDob">Datum rođenja</Label>
+                  <Label htmlFor="editDob">{t('children.dateOfBirth')}</Label>
                   <Input
                     id="editDob"
                     type="date"
@@ -579,7 +578,7 @@ export default function AdminPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Pol</Label>
+                  <Label>{t('children.gender')}</Label>
                   <Select
                     value={editForm.gender}
                     onValueChange={v => setEditForm(f => ({ ...f, gender: v }))}
@@ -600,11 +599,11 @@ export default function AdminPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUser(null)} disabled={isEditSaving}>
-              Odustani
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveEdit} disabled={isEditSaving}>
               {isEditSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sačuvaj izmjene
+              {t('applications.saveChanges')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -614,11 +613,11 @@ export default function AdminPage() {
       <ConfirmationDialog
         open={!!deactivateUser}
         onOpenChange={(open) => !open && setDeactivateUser(null)}
-        title="Deaktiviraj korisnika"
+        title={t('admin.deactivateUserTitle')}
         description={deactivateUser
-          ? `Da li ste sigurni da želite deaktivirati korisnika "${deactivateUser.firstName} ${deactivateUser.lastName}"? Korisnik se neće moći prijaviti dok ne bude ponovo aktiviran.`
+          ? t('admin.deactivateUserConfirm', { name: `${deactivateUser.firstName} ${deactivateUser.lastName}` })
           : ''}
-        confirmLabel="Deaktiviraj"
+        confirmLabel={t('applications.deactivateAction')}
         variant="destructive"
         onConfirm={handleConfirmDeactivate}
       />

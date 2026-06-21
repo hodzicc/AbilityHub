@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { FontSize, ColorScheme } from '@/lib/types'
+import type { FontSize, ColorScheme, FontFamily } from '@/lib/types'
+import { FONT_SIZES as fontSizes, COLOR_SCHEMES as colorSchemes, FONT_FAMILIES as fontFamilies } from '@/lib/preferences'
 import { toast } from 'sonner'
 import { Smartphone, RefreshCw, Loader2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,20 +26,6 @@ import {
   apiSetPreferences,
   type UserProfileResponse,
 } from '@/lib/api'
-
-const fontSizes: { value: FontSize; label: string; size: string }[] = [
-  { value: 'small',       label: 'Mala',       size: '14px' },
-  { value: 'medium',      label: 'Srednja',    size: '16px' },
-  { value: 'large',       label: 'Velika',     size: '18px' },
-  { value: 'extra-large', label: 'Vrlo velika', size: '20px' },
-]
-
-const colorSchemes: { value: ColorScheme; label: string; colors: string[] }[] = [
-  { value: 'default',       label: 'Zadana',         colors: ['#4F46E5', '#10B981', '#F59E0B'] },
-  { value: 'high-contrast', label: 'Visoki kontrast', colors: ['#000000', '#FFFFFF', '#FF0000'] },
-  { value: 'pastel',        label: 'Pastelne',        colors: ['#A5B4FC', '#86EFAC', '#FDE68A'] },
-  { value: 'warm',          label: 'Tople',           colors: ['#F97316', '#FBBF24', '#EF4444'] },
-]
 
 export default function PreferencesPage() {
   const { t } = useTranslation()
@@ -71,6 +58,7 @@ export default function PreferencesPage() {
         updatePreferences({
           fontSize:     (record.fontSize as FontSize)       || preferences.fontSize,
           colorScheme:  (record.colorScheme as ColorScheme) || preferences.colorScheme,
+          fontFamily:   (record.fontFamily as FontFamily)   || preferences.fontFamily,
           reducedMotion: record.reducedMotion === 'true',
           highContrast:  record.highContrast  === 'true',
           soundEnabled:  record.soundEnabled  !== 'false',
@@ -83,7 +71,7 @@ export default function PreferencesPage() {
 
   const handleSave = async () => {
     if (!selectedChildId) {
-      toast.error('Odaberite dijete prije čuvanja')
+      toast.error(t('settings.selectChildBeforeSave'))
       return
     }
     setIsSaving(true)
@@ -91,15 +79,16 @@ export default function PreferencesPage() {
       await apiSetPreferences(selectedChildId, {
         fontSize:      preferences.fontSize,
         colorScheme:   preferences.colorScheme,
+        fontFamily:    preferences.fontFamily,
         reducedMotion: String(preferences.reducedMotion),
         highContrast:  String(preferences.highContrast),
         soundEnabled:  String(preferences.soundEnabled),
       })
       const childName = children.find(c => c.id === selectedChildId)
-      const name = childName ? `${childName.firstName} ${childName.lastName}`.trim() : 'dijete'
-      toast.success(`Preferencije za ${name} sačuvane`)
+      const name = childName ? `${childName.firstName} ${childName.lastName}`.trim() : ''
+      toast.success(t('settings.savedForChild', { name }))
     } catch {
-      toast.error('Greška pri čuvanju preferencija')
+      toast.error(t('settings.savePreferencesError'))
     } finally {
       setIsSaving(false)
     }
@@ -107,7 +96,7 @@ export default function PreferencesPage() {
 
   const handleReset = () => {
     resetPreferences()
-    toast.success('Preferencije su resetovane na zadane vrijednosti')
+    toast.success(t('settings.resetSuccess'))
   }
 
   return (
@@ -118,7 +107,7 @@ export default function PreferencesPage() {
       >
         <Button variant="outline" onClick={handleReset}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Resetuj
+          {t('settings.reset')}
         </Button>
       </PageHeader>
 
@@ -127,20 +116,19 @@ export default function PreferencesPage() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="h-4 w-4 text-indigo-500" />
-            Za koje dijete mijenjate preferencije?
+            {t('settings.preferencesForTitle')}
           </CardTitle>
           <CardDescription>
-            Odaberite dijete — preferencije se čuvaju zasebno za svako dijete i šalju se svim njihovim aplikacijama.
-            Za postavke po pojedinoj aplikaciji, posjetite profil djeteta.
+            {t('settings.preferencesForDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {children.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nemate dodane djece. Dodajte dijete u odjeljku Djeca.</p>
+            <p className="text-sm text-muted-foreground">{t('settings.noChildrenForPrefs')}</p>
           ) : (
             <Select value={selectedChildId} onValueChange={setSelectedChildId}>
               <SelectTrigger className="w-full sm:w-72">
-                <SelectValue placeholder="Odaberite dijete..." />
+                <SelectValue placeholder={t('statistics.selectChild')} />
               </SelectTrigger>
               <SelectContent>
                 {children.map(c => (
@@ -157,7 +145,7 @@ export default function PreferencesPage() {
       {isLoadingChild ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
           <Loader2 className="h-5 w-5 animate-spin" />
-          Učitavanje preferencija...
+          {t('settings.loadingPreferences')}
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -167,7 +155,7 @@ export default function PreferencesPage() {
             <Card className="border-0 shadow-sm">
               <CardHeader>
                 <CardTitle>{t('settings.fontSize')}</CardTitle>
-                <CardDescription>Veličina teksta u mobilnim aplikacijama</CardDescription>
+                <CardDescription>{t('settings.fontSizeDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <RadioGroup
@@ -186,7 +174,9 @@ export default function PreferencesPage() {
                         )}
                       >
                         <span style={{ fontSize: size.size }} className="font-medium mb-2">Aa</span>
-                        <span className="text-xs text-muted-foreground">{size.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`settings.fontSizes.${size.value === 'extra-large' ? 'extraLarge' : size.value}`)}
+                        </span>
                       </Label>
                     </div>
                   ))}
@@ -194,11 +184,42 @@ export default function PreferencesPage() {
               </CardContent>
             </Card>
 
+            {/* Font family */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>{t('settings.fontFamily')}</CardTitle>
+                <CardDescription>{t('settings.fontFamilyDesc')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Select
+                  value={preferences.fontFamily}
+                  onValueChange={(v) => updatePreferences({ fontFamily: v as FontFamily })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fontFamilies.map(f => (
+                      <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.stack }}>
+                        {t(`settings.fontFamilies.${f.value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.fontFamilyWhy')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Color scheme */}
             <Card className="border-0 shadow-sm">
               <CardHeader>
                 <CardTitle>{t('settings.colorScheme')}</CardTitle>
-                <CardDescription>Shema boja za mobilne aplikacije</CardDescription>
+                <CardDescription>{t('settings.colorSchemeDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <RadioGroup
@@ -221,25 +242,33 @@ export default function PreferencesPage() {
                             <div key={i} className="h-6 w-6 rounded-full border" style={{ backgroundColor: color }} />
                           ))}
                         </div>
-                        <span className="text-xs text-muted-foreground">{scheme.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`settings.colorSchemes.${scheme.value === 'high-contrast' ? 'highContrast' : scheme.value}`)}
+                        </span>
                       </Label>
                     </div>
                   ))}
                 </RadioGroup>
+                <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.colorSchemeWhy')}
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
             {/* Accessibility */}
             <Card className="border-0 shadow-sm">
               <CardHeader>
-                <CardTitle>Pristupačnost</CardTitle>
-                <CardDescription>Postavke pristupačnosti za mobilne aplikacije</CardDescription>
+                <CardTitle>{t('settings.accessibility')}</CardTitle>
+                <CardDescription>{t('settings.accessibilityDesc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {([
-                  ['reducedMotion', t('settings.reducedMotion'), 'Smanji animacije i pokrete'],
-                  ['highContrast',  t('settings.highContrast'),  'Povećaj kontrast teksta i elemenata'],
-                  ['soundEnabled',  t('settings.soundEnabled'),  'Omogući zvučne efekte i povratne informacije'],
+                  ['reducedMotion', t('settings.reducedMotion'), t('settings.reducedMotionDesc')],
+                  ['highContrast',  t('settings.highContrast'),  t('settings.highContrastDesc')],
+                  ['soundEnabled',  t('settings.soundEnabled'),  t('settings.soundEnabledDesc')],
                 ] as [keyof typeof preferences, string, string][]).map(([key, label, desc]) => (
                   <div key={key} className="flex items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
@@ -275,36 +304,46 @@ export default function PreferencesPage() {
                     <div
                       className={cn(
                         'p-4 min-h-[380px]',
-                        preferences.colorScheme === 'high-contrast' && 'bg-black text-white',
+                        // Black-on-yellow per Alonso-Virgós et al. (2018) — see
+                        // ACCESSIBILITY_RESEARCH.md — not a generic black/white invert.
+                        preferences.colorScheme === 'high-contrast' && 'bg-yellow-300 text-black',
                         preferences.colorScheme === 'pastel' && 'bg-indigo-50',
                         preferences.colorScheme === 'warm' && 'bg-orange-50'
                       )}
-                      style={{ fontSize: fontSizes.find(f => f.value === preferences.fontSize)?.size }}
+                      style={{
+                        fontSize: fontSizes.find(f => f.value === preferences.fontSize)?.size,
+                        fontFamily: fontFamilies.find(f => f.value === preferences.fontFamily)?.stack,
+                      }}
                     >
                       <div className={cn(
                         'rounded-lg p-3 mb-4',
                         preferences.colorScheme === 'default'       && 'bg-indigo-500',
-                        preferences.colorScheme === 'high-contrast' && 'bg-white text-black',
+                        preferences.colorScheme === 'high-contrast' && 'bg-black text-yellow-300',
                         preferences.colorScheme === 'pastel'        && 'bg-indigo-200',
                         preferences.colorScheme === 'warm'          && 'bg-orange-400'
                       )}>
                         <span className={cn('font-bold', preferences.colorScheme !== 'high-contrast' && 'text-white')}>
-                          Učimo Slova
+                          {t('settings.previewAppName')}
                         </span>
                       </div>
                       <div className="space-y-4">
                         <div className={cn('rounded-xl p-6 text-center',
                           preferences.colorScheme === 'default'       && 'bg-indigo-100',
-                          preferences.colorScheme === 'high-contrast' && 'bg-white text-black border-2 border-white',
+                          preferences.colorScheme === 'high-contrast' && 'bg-yellow-300 border-2 border-black',
                           preferences.colorScheme === 'pastel'        && 'bg-indigo-100',
                           preferences.colorScheme === 'warm'          && 'bg-orange-100'
                         )}>
-                          <span className="text-6xl font-bold" style={{
-                            color: colorSchemes.find(c => c.value === preferences.colorScheme)?.colors[0]
-                          }}>A</span>
+                          <span
+                            className="text-6xl font-bold"
+                            style={{
+                              color: preferences.colorScheme === 'high-contrast'
+                                ? '#000000'
+                                : colorSchemes.find(c => c.value === preferences.colorScheme)?.colors[0],
+                            }}
+                          >A</span>
                         </div>
                         <p className={cn('text-center', preferences.highContrast && 'font-bold')}>
-                          Pronađi slovo A
+                          {t('settings.previewFindLetter')}
                         </p>
                         <div className="grid grid-cols-3 gap-2">
                           {['A', 'B', 'C'].map(letter => (
@@ -312,7 +351,7 @@ export default function PreferencesPage() {
                               'rounded-lg p-3 font-bold transition-transform',
                               !preferences.reducedMotion && 'hover:scale-105',
                               preferences.colorScheme === 'default'       && 'bg-gray-100',
-                              preferences.colorScheme === 'high-contrast' && 'bg-white text-black border-2 border-black',
+                              preferences.colorScheme === 'high-contrast' && 'bg-black text-yellow-300 border-2 border-black',
                               preferences.colorScheme === 'pastel'        && 'bg-white',
                               preferences.colorScheme === 'warm'          && 'bg-white'
                             )}>
@@ -339,8 +378,7 @@ export default function PreferencesPage() {
                   <div>
                     <h4 className="font-semibold text-sm">{t('settings.syncPreferences')}</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Ove postavke se automatski sinhronizuju sa svim mobilnim aplikacijama
-                      koje koristi odabrano dijete. Promjene će biti vidljive pri sljedećem pokretanju aplikacije.
+                      {t('settings.syncPreferencesDesc')}
                     </p>
                   </div>
                 </div>
@@ -354,7 +392,7 @@ export default function PreferencesPage() {
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={handleReset}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Resetuj
+          {t('settings.reset')}
         </Button>
         <Button
           onClick={handleSave}

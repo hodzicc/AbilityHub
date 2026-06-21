@@ -19,14 +19,8 @@ import {
   Clock,
   Users,
   Calendar,
-  BookOpen,
-  Calculator,
-  MessageCircle,
-  Palette,
-  Gamepad2,
   Trash2,
   PlugZap,
-  AppWindow,
   PowerOff,
   Power,
   Settings2,
@@ -46,10 +40,8 @@ import {
   type ApplicationResponse,
   type UserProfileResponse,
 } from '@/lib/api'
-
-const iconMap: Record<string, React.ElementType> = {
-  BookOpen, Calculator, MessageCircle, Palette, Clock, Gamepad2, AppWindow,
-}
+import { ROLE_ID } from '@/lib/constants'
+import { getAppIcon } from '@/lib/app-icons'
 
 function responseToApp(r: ApplicationResponse): Application {
   let features: string[] = []
@@ -103,7 +95,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
       const [appData, children] = await Promise.all([
         apiGetApp(id),
         isAdmin
-          ? apiGetAllUsers(1, 200).then(r => r.items.filter(u => u.roleId === 3)).catch(() => [] as UserProfileResponse[])
+          ? apiGetAllUsers(1, 200).then(r => r.items.filter(u => u.roleId === ROLE_ID.CHILD)).catch(() => [] as UserProfileResponse[])
           : apiGetChildren(user.id).catch(() => [] as UserProfileResponse[]),
       ])
 
@@ -148,7 +140,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
       setAvailableChildren(available)
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
-      else toast.error('Greška pri učitavanju aplikacije')
+      else toast.error(t('applications.loadOneError'))
     } finally {
       setIsLoading(false)
     }
@@ -169,10 +161,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           isBlocked: false,
         })
       }
-      toast.success('Aplikacija uspješno dodijeljena')
+      toast.success(t('applications.assignSuccess'))
       await loadData()
     } catch {
-      toast.error('Greška pri dodjeli aplikacije')
+      toast.error(t('applications.assignError'))
     }
   }
 
@@ -180,11 +172,11 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     if (!removeChildId) return
     try {
       await apiRemoveApp(removeChildId, id)
-      toast.success('Aplikacija uklonjena')
+      toast.success(t('applications.removedToast'))
       setRemoveChildId(null)
       await loadData()
     } catch {
-      toast.error('Greška pri uklanjanju aplikacije')
+      toast.error(t('applications.removeError'))
       setRemoveChildId(null)
     }
   }
@@ -192,11 +184,11 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
   const handleDeactivate = async () => {
     try {
       await apiDeactivateApp(id)
-      toast.success('Aplikacija deaktivirana')
+      toast.success(t('applications.deactivatedGenericToast'))
       setIsDeactivateDialogOpen(false)
       await loadData()
     } catch {
-      toast.error('Greška pri deaktivaciji aplikacije')
+      toast.error(t('applications.deactivateError'))
       setIsDeactivateDialogOpen(false)
     }
   }
@@ -205,10 +197,10 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     if (!rawApp) return
     try {
       await apiUpdateApp(id, { ...rawApp, isActive: true })
-      toast.success('Aplikacija aktivirana')
+      toast.success(t('applications.activatedGenericToast'))
       await loadData()
     } catch {
-      toast.error('Greška pri aktivaciji aplikacije')
+      toast.error(t('applications.activateError'))
     }
   }
 
@@ -224,7 +216,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     )
   }
 
-  const Icon = iconMap[app.icon] || AppWindow
+  const Icon = getAppIcon(app.icon)
 
   return (
     <div className="space-y-6">
@@ -233,7 +225,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           {isAdmin && (
             <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
               <Pencil className="mr-2 h-4 w-4" />
-              Uredi
+              {t('common.edit')}
             </Button>
           )}
           {isAdmin && app.isActive && (
@@ -243,13 +235,13 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
               onClick={() => setIsDeactivateDialogOpen(true)}
             >
               <PowerOff className="mr-2 h-4 w-4" />
-              Deaktiviraj
+              {t('applications.deactivate')}
             </Button>
           )}
           {isAdmin && !app.isActive && (
             <Button variant="outline" onClick={handleActivate}>
               <Power className="mr-2 h-4 w-4" />
-              Aktiviraj
+              {t('applications.activate')}
             </Button>
           )}
           <Button variant="outline" asChild>
@@ -328,24 +320,24 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <PlugZap className="h-5 w-5" />
-            Integracijski ugovor
+            {t('applications.integrationContract')}
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Platforma</p>
+            <p className="text-sm text-muted-foreground">{t('applications.platform')}</p>
             <p className="mt-1 font-medium capitalize">{app.platform}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Verzija</p>
+            <p className="text-sm text-muted-foreground">{t('applications.version')}</p>
             <p className="mt-1 font-medium">{app.version || '—'}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Format podataka</p>
+            <p className="text-sm text-muted-foreground">{t('applications.dataFormat')}</p>
             <p className="mt-1 font-medium">{app.dataFormat || '—'}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm text-muted-foreground">Ključ</p>
+            <p className="text-sm text-muted-foreground">{t('applications.key')}</p>
             <p className="mt-1 font-medium font-mono text-sm">{app.key}</p>
           </div>
         </CardContent>
@@ -380,7 +372,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                       {dailyTimeLimit > 0 && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          {dailyTimeLimit} min/dan
+                          {dailyTimeLimit} {t('applications.minutesPerDayShort')}
                         </span>
                       )}
                     </div>
@@ -391,7 +383,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                         variant="ghost"
                         size="icon"
                         className="text-muted-foreground hover:text-foreground"
-                        title={`Postavke za ${child.name}`}
+                        title={t('applications.settingsFor', { name: child.name })}
                         onClick={() => setPrefsChild(child)}
                       >
                         <Settings2 className="h-4 w-4" />
@@ -412,7 +404,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nema dodijeljene djece</p>
+              <p>{t('applications.noAssignedChildren')}</p>
               {!isAdmin && (
                 <Button
                   variant="outline"
@@ -446,7 +438,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
           open={!!removeChildId}
           onOpenChange={(open) => !open && setRemoveChildId(null)}
           title={t('children.removeApp')}
-          description="Da li ste sigurni da želite ukloniti ovu aplikaciju od djeteta?"
+          description={t('applications.removeConfirm')}
           confirmLabel={t('common.delete')}
           variant="destructive"
           onConfirm={handleRemove}
@@ -457,9 +449,9 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
       <ConfirmationDialog
         open={isDeactivateDialogOpen}
         onOpenChange={setIsDeactivateDialogOpen}
-        title="Deaktiviraj aplikaciju"
-        description={`Da li ste sigurni da želite deaktivirati aplikaciju "${app?.name}"? Aplikacija više neće biti dostupna za dodjelu djeci.`}
-        confirmLabel="Deaktiviraj"
+        title={t('applications.deactivateTitle')}
+        description={t('applications.deactivateConfirm', { name: app?.name ?? '' })}
+        confirmLabel={t('applications.deactivateAction')}
         variant="destructive"
         onConfirm={handleDeactivate}
       />

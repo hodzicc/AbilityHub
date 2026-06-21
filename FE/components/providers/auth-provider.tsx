@@ -13,6 +13,7 @@ import {
   getRefreshToken,
   type UserProfileResponse,
 } from '@/lib/api'
+import { ROLE_ID } from '@/lib/constants'
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>
@@ -29,7 +30,7 @@ function profileToUser(p: UserProfileResponse): User {
     firstName: p.firstName,
     lastName: p.lastName,
     name: `${p.firstName} ${p.lastName}`.trim(),
-    role: p.roleId === 1 ? 'admin' : 'parent',
+    role: p.roleId === ROLE_ID.ADMIN ? 'admin' : 'parent',
     createdAt: new Date(p.createdAt),
   }
 }
