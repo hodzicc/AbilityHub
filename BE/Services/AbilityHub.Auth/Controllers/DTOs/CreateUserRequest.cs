@@ -15,4 +15,8 @@ public class CreateUserRequest
     /// ignored for parents (the caller becomes the guardian automatically).
     /// </summary>
     public Guid? GuardianId { get; set; }
+
+    /// <summary>Optional profile fields, set on the user's profile at creation time.</summary>
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
 }

@@ -7,6 +7,7 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
 {
     public DbSet<UsageSession> UsageSessions { get; set; }
     public DbSet<ActivityRecord> ActivityRecords { get; set; }
+    public DbSet<WeeklyCheckIn> WeeklyCheckIns { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -15,5 +16,10 @@ public class UsageDbContext(DbContextOptions<UsageDbContext> options) : DbContex
 
         modelBuilder.Entity<ActivityRecord>()
             .HasIndex(a => new { a.ChildId, a.ApplicationId, a.OccurredAt });
+
+        // One parent evaluation per child per week.
+        modelBuilder.Entity<WeeklyCheckIn>()
+            .HasIndex(c => new { c.ChildId, c.WeekStartDate })
+            .IsUnique();
     }
 }

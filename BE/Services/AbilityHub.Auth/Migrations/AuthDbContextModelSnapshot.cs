@@ -52,6 +52,35 @@ namespace AbilityHub.Auth.Migrations
                     b.ToTable("Credentials");
                 });
 
+            modelBuilder.Entity("AbilityHub.Auth.Entities.PairingToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChildId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash");
+
+                    b.ToTable("PairingTokens");
+                });
+
             modelBuilder.Entity("AbilityHub.Auth.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")

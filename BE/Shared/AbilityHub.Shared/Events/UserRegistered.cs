@@ -15,4 +15,6 @@ public record UserRegistered(
     string FirstName,
     string LastName,
     int RoleId,
-    Guid? GuardianId = null) : IntegrationEvent;
+    Guid? GuardianId = null,
+    DateTime? DateOfBirth = null,
+    string? Gender = null) : IntegrationEvent;

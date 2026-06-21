@@ -2,7 +2,7 @@ using AbilityHub.AppRegistry.Controllers.DTOs;
 
 namespace AbilityHub.AppRegistry.Services;
 
-public enum AssignmentOutcome { Assigned, AlreadyAssigned, AppNotFound, AppInactive }
+public enum AssignmentOutcome { Assigned, AlreadyAssigned, AppNotFound, AppInactive, AgeOutOfRange }
 
 public interface IChildAppService
 {

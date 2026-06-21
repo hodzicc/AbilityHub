@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth, useTranslation } from '@/components/providers'
 import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +28,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { Clock, TrendingUp, Calendar, Download, Play, CheckCircle, Pause, Trophy, Sparkles } from 'lucide-react'
+import { Clock, TrendingUp, Calendar, Download, Play, CheckCircle, Pause, Trophy, Sparkles, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   apiGetChildren,
@@ -37,10 +37,10 @@ import {
   type DashboardResponse,
   type UserProfileResponse,
 } from '@/lib/api'
-import { apiGetActivityMetrics } from '@/lib/api/mocks'
 import type { AppCategory, ActivityMetrics } from '@/lib/types'
 import { APP_CATEGORIES } from '@/lib/constants'
 import { WeeklyCheckInCard } from '@/components/statistics/weekly-checkin-card'
+import { useUsageRealtime } from '@/lib/realtime/use-usage-realtime'
 
 const categories: (AppCategory | 'all')[] = ['all', ...APP_CATEGORIES.map(c => c.value)]
 
@@ -72,19 +72,17 @@ export default function StatisticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<AppCategory | 'all'>('all')
   const [appNames, setAppNames] = useState<Record<string, { name: string; color: string; category: AppCategory }>>({})
   const [isLoading, setIsLoading] = useState(true)
-  const [expandedMetrics, setExpandedMetrics] = useState<Record<string, ActivityMetrics | null>>({})
+  // Metrics now arrive embedded in each dashboard activity, so expanding a row is
+  // a pure UI toggle — no extra request needed.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
-  const toggleMetrics = async (activityId: string) => {
-    if (activityId in expandedMetrics) {
-      setExpandedMetrics(prev => {
-        const next = { ...prev }
-        delete next[activityId]
-        return next
-      })
-      return
-    }
-    const metrics = await apiGetActivityMetrics(activityId).catch(() => null)
-    setExpandedMetrics(prev => ({ ...prev, [activityId]: metrics }))
+  const toggleMetrics = (activityId: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(activityId)) next.delete(activityId)
+      else next.add(activityId)
+      return next
+    })
   }
 
   useEffect(() => {
@@ -127,6 +125,17 @@ export default function StatisticsPage() {
     load()
   }, [user?.id])
 
+  // Realtime: when a child reports usage (time / activity / live step progress),
+  // re-fetch just that child's dashboard so metrics and time update instantly.
+  const refetchChild = useCallback(async (childId: string) => {
+    const dashboard = await apiGetDashboard(childId).catch(() => null)
+    setChildrenData(prev =>
+      prev.map(d => (d.profile.id === childId ? { ...d, dashboard } : d))
+    )
+  }, [])
+
+  useUsageRealtime(childrenData.map(d => d.profile.id), refetchChild)
+
   // Filtered dashboards based on selected child
   const filteredDashboards = useMemo(() => {
     if (selectedChild === 'all') return childrenData.map(d => d.dashboard).filter(Boolean) as DashboardResponse[]
@@ -152,10 +161,16 @@ export default function StatisticsPage() {
     return { totalMinutes, totalActivities, totalSessions }
   }, [filteredDashboards, selectedCategory, appNames])
 
-  // Provisional average-progress proxy: share of apps used in the period that
-  // have any recorded usage at all. This is a stand-in until the backend
-  // reports real step-level completion (see BE/API_CONTRACTS_NEEDED.md).
+  // Real step-level progress when the backend reports it (avg of completed/total
+  // sub-steps across activities), averaged over the selected children. Falls back
+  // to the old "share of apps used" proxy only when no activity reported steps yet.
   const avgProgressPercent = useMemo(() => {
+    const reported = filteredDashboards
+      .map(d => d.avgProgressPercent)
+      .filter((v): v is number => v != null)
+    if (reported.length > 0) {
+      return Math.round(reported.reduce((s, v) => s + v, 0) / reported.length)
+    }
     const perAppFiltered = filteredDashboards.flatMap(d => d.perApp.filter(a => matchesCategory(a.applicationId)))
     if (perAppFiltered.length === 0) return 0
     const usedCount = perAppFiltered.filter(a => a.totalMinutes > 0).length
@@ -193,6 +208,8 @@ export default function StatisticsPage() {
       type: string
       detail: string
       occurredAt: Date
+      inProgress?: boolean
+      metrics?: ActivityMetrics
     }> = []
     filteredDashboards.forEach((d, i) => {
       const childProfile = selectedChild === 'all'
@@ -203,12 +220,14 @@ export default function StatisticsPage() {
         : 'Unknown'
       d.recentActivities.filter(a => matchesCategory(a.applicationId)).forEach((a, j) => {
         acts.push({
-          id: `${i}-${j}`,
+          id: a.id ?? `${i}-${j}`,
           childName,
           appId: a.applicationId,
           type: a.activityType,
           detail: a.detail ?? a.name,
           occurredAt: new Date(a.occurredAt),
+          inProgress: a.inProgress,
+          metrics: a.metrics,
         })
       })
     })
@@ -435,9 +454,10 @@ export default function StatisticsPage() {
                     {recentActivities.map(activity => {
                       const app = appNames[activity.appId]
                       const action = activityTypeToAction(activity.type)
-                      const Icon = actionIcons[action]
-                      const metrics = expandedMetrics[activity.id]
-                      const isExpanded = activity.id in expandedMetrics
+                      // In-progress activities show a spinner, not the "completed" check.
+                      const Icon = activity.inProgress ? Loader2 : actionIcons[action]
+                      const metrics = activity.metrics
+                      const isExpanded = expandedIds.has(activity.id)
                       return (
                         <div key={activity.id} className="pb-4 border-b last:border-0">
                           <button
@@ -449,12 +469,19 @@ export default function StatisticsPage() {
                               className="flex h-10 w-10 items-center justify-center rounded-full shrink-0"
                               style={{ backgroundColor: (app?.color ?? '#666') + '20', color: app?.color ?? '#666' }}
                             >
-                              <Icon className="h-5 w-5" />
+                              <Icon className={`h-5 w-5 ${activity.inProgress ? 'animate-spin' : ''}`} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{activity.childName}</span>
                                 <Badge variant="secondary">{app?.name ?? 'Unknown'}</Badge>
+                                {activity.inProgress && (
+                                  <Badge className="bg-amber-500 hover:bg-amber-500 text-white animate-pulse">
+                                    {activity.metrics?.stepsTotal != null
+                                      ? `U toku • korak ${Math.min((activity.metrics.stepsCompleted ?? 0) + 1, activity.metrics.stepsTotal)}/${activity.metrics.stepsTotal}`
+                                      : 'U toku'}
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">{activity.detail}</p>
                               <p className="text-xs text-muted-foreground mt-1">

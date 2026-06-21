@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\AbilityHub.Shared\AbilityHub.Shared.csproj" />
     <ProjectReference Include="..\..\Infrastructure\AbilityHub.MessageBus\AbilityHub.MessageBus.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\AbilityHub.ServiceClients\AbilityHub.ServiceClients.csproj" />
   </ItemGroup>
 
 </Project>

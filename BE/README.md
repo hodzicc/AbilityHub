@@ -122,6 +122,33 @@ curl http://localhost:8080/api/usage/children/<childId>/dashboard \
 # Check remaining daily allowance (Usage reads the limit from Settings)
 curl http://localhost:8080/api/usage/children/<childId>/apps/<appId>/limit-status \
   -H "Authorization: Bearer <childAccessToken>"
+
+# Report usage WITH accessibility metrics (any metric the app can't measure is omitted)
+curl -X POST http://localhost:8080/api/usage/report \
+  -H "Authorization: Bearer <childAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"applicationId":"<appId>","activities":[{"activityType":"daily-task","name":"Brush teeth","occurredAt":"2026-06-20T08:00:00Z","metrics":{"startedViaAction":true,"completedViaAction":true,"stepsCompleted":4,"stepsTotal":5,"durationSeconds":132,"hintsShown":1,"errorsCount":0}}]}'
+
+# Dashboard filtered to one activity type (statistics filtering)
+curl "http://localhost:8080/api/usage/children/<childId>/dashboard?activityType=daily-task" \
+  -H "Authorization: Bearer <parentAccessToken>"
+
+# Submit / read a weekly parent evaluation (guardian or admin)
+curl -X POST http://localhost:8080/api/checkins/children/<childId> \
+  -H "Authorization: Bearer <parentAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"weekStartDate":"2026-06-15","moodBefore":"good","moodAfter":"great","helpLevel":"minimal","performanceQuality":"good","safetyIncident":false,"dayContext":"normal","usesSkillOutsideApp":true}'
+curl http://localhost:8080/api/checkins/children/<childId> \
+  -H "Authorization: Bearer <parentAccessToken>"
+
+# Issue a QR pairing token for a child (guardian/admin), then exchange it (mobile app)
+curl -X POST http://localhost:8080/api/auth/children/<childId>/pairing-token \
+  -H "Authorization: Bearer <parentAccessToken>"
+# → {"token":"<opaque>","expiresAt":"..."}; the QR encodes { childId, token }
+curl -X POST http://localhost:8080/api/auth/pairing/exchange \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<opaque>"}'
+# → normal {accessToken, refreshToken} for that child
 ```
 
 ## Running locally (without Docker)

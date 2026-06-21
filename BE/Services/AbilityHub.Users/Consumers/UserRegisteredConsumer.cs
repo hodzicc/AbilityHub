@@ -1,3 +1,4 @@
+using AutoMapper;
 using MassTransit;
 using AbilityHub.Shared.Events;
 using AbilityHub.Users.Entities;
@@ -10,10 +11,11 @@ namespace AbilityHub.Users.Consumers;
 /// profile in the Users database. Idempotent: a redelivered event won't create
 /// a duplicate profile.
 /// </summary>
-public class UserRegisteredConsumer(IUserRepository userRepository, ILogger<UserRegisteredConsumer> logger)
+public class UserRegisteredConsumer(IUserRepository userRepository, IMapper mapper, ILogger<UserRegisteredConsumer> logger)
     : IConsumer<UserRegistered>
 {
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly IMapper _mapper = mapper;
     private readonly ILogger<UserRegisteredConsumer> _logger = logger;
 
     public async Task Consume(ConsumeContext<UserRegistered> context)
@@ -22,16 +24,8 @@ public class UserRegisteredConsumer(IUserRepository userRepository, ILogger<User
 
         if (!await _userRepository.ExistsAsync(message.UserId))
         {
-            var user = new User
-            {
-                Id = message.UserId,
-                Email = message.Email,
-                FirstName = message.FirstName,
-                LastName = message.LastName,
-                RoleId = message.RoleId,
-                CreateUserId = message.GuardianId ?? message.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
+            var user = _mapper.Map<User>(message);
+            user.CreatedAt = DateTime.UtcNow;
 
             await _userRepository.AddAsync(user);
             _logger.LogInformation("Created profile for user {UserId} ({Email}).", message.UserId, message.Email);

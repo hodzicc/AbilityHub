@@ -1,8 +1,20 @@
-# Backend endpoints needed by the frontend (not yet implemented)
+# Backend endpoints for advisor-requested features — **implemented**
 
-The frontend has been built against **mocks** for the items below, so the screens are fully demoable today. Each mock lives in `FE/lib/api/mocks.ts` and is called from a single, clearly-named function (`apiGetActivityMetrics`, `apiGetChildPairingToken`, `apiSubmitWeeklyCheckIn`, `apiGetWeeklyCheckIns`). Once a real endpoint exists, swap the mock import for a real `apiFetch`-based client function with the same signature — no other frontend code needs to change.
+> **Status: done.** The three features below were previously frontend mocks; they
+> are now backed by real endpoints. `FE/lib/api/mocks.ts` has been deleted and the
+> call sites point at real `apiFetch` clients in `FE/lib/api/index.ts` with the same
+> signatures. This document is kept as the contract/design record (useful for the
+> thesis chapter on integration points and for the mobile-app developers who will
+> report against these endpoints).
 
-This list comes from advisor feedback asking for richer, accessibility-focused progress metrics, weekly parent evaluations, and QR-code child login (already used in the team's other mobile apps for the Down Syndrome Association).
+This work comes from advisor feedback asking for richer, accessibility-focused progress metrics, weekly parent evaluations, and QR-code child login (already used in the team's other mobile apps for the Down Syndrome Association).
+
+| Feature | Service | Endpoint(s) |
+|---|---|---|
+| Per-activity accessibility metrics | Usage | `POST /api/usage/report` (extended) + dashboard now embeds `metrics` per activity, plus `avgProgressPercent` / `weeklyConsistency` |
+| Weekly parent check-in | Usage | `POST` / `GET /api/checkins/children/{childId}` |
+| QR child login / device pairing | Auth | `POST /api/auth/children/{childId}/pairing-token`, `POST /api/auth/pairing/exchange` |
+| Statistics filtering by activity type | Usage | `GET /api/usage/children/{childId}/dashboard?activityType=…` |
 
 ---
 
@@ -10,9 +22,9 @@ This list comes from advisor feedback asking for richer, accessibility-focused p
 
 **Why**: "Time spent" alone doesn't tell a parent whether an activity helped. We need finer-grained signals: was it started/finished via an explicit action, how many of the activity's steps were completed, how long it took, how many hints were shown, how many errors occurred.
 
-**Current mock**: `apiGetActivityMetrics(activityId)` in `FE/lib/api/mocks.ts` — returns deterministic fake numbers seeded from the activity id.
+**Implemented**: `ActivityRecord` (Usage) gained seven nullable metric columns; `POST /api/usage/report` accepts an optional `metrics` object per activity; the dashboard embeds `metrics` on each recent activity (no separate fetch) and adds `avgProgressPercent` + `weeklyConsistency`. The synthetic `apiGetActivityMetrics` mock was removed.
 
-**Proposed real contract**
+**Contract**
 
 - Mobile/web apps already report activities via the usage-ingestion path that produces `RecentActivityDto` (see `AbilityHub.Usage`). Extend that ingestion payload with an **optional** metrics object — apps that can't report a field simply omit it:
 
@@ -48,9 +60,9 @@ POST /api/usage/children/{childId}/activities
 
 **Why**: Objective in-app metrics don't capture mood, real-world carryover, or safety incidents. Advisor asked for a short weekly questionnaire parents fill out per child.
 
-**Current mock**: `apiSubmitWeeklyCheckIn` / `apiGetWeeklyCheckIns` in `FE/lib/api/mocks.ts`, backed by `localStorage` so it persists across reloads in demos.
+**Implemented**: `WeeklyCheckIn` entity + `CheckInsController` in the Usage service (parent evaluations are statistics-domain data, so they live with the stats they enrich, reachable at `/api/checkins`). Upsert keyed by `(childId, weekStartDate)`. The `localStorage` mock was removed.
 
-**Proposed real contract**
+**Contract**
 
 ```http
 POST /api/checkins/children/{childId}
@@ -88,9 +100,9 @@ Authorization should mirror the existing pattern in `AbilityHub.Users`/`AbilityH
 
 **Why**: Mobile apps already built for the Down Syndrome Association use QR-code login for child users instead of typed credentials. The platform should issue the pairing code; mobile apps exchange it for a session.
 
-**Current mock**: `apiGetChildPairingToken(childId)` in `FE/lib/api/mocks.ts` — fabricates a token string client-side, no real security.
+**Implemented**: `PairingToken` entity + `PairingController` in the Auth service. Tokens are opaque, hashed at rest (SHA-256, like refresh tokens), 5-minute lifetime, single-use. Auth now calls the Users service for the guardian check (same pattern as the other services). The client-fabricated mock was removed.
 
-**Proposed real contract**
+**Contract**
 
 ```http
 POST /api/auth/children/{childId}/pairing-token
@@ -112,9 +124,16 @@ POST /api/auth/pairing/exchange
 
 ## Summary table
 
-| Feature | Mock location | Real endpoint(s) needed |
+| Feature | FE client (real) | Endpoint(s) |
 |---|---|---|
-| Per-activity metrics | `apiGetActivityMetrics` | Extend usage ingestion + dashboard response with optional `metrics` |
+| Per-activity metrics | embedded in `apiGetDashboard` | `POST /api/usage/report` (optional `metrics`) + dashboard `metrics` per activity |
 | Weekly parent check-in | `apiSubmitWeeklyCheckIn`, `apiGetWeeklyCheckIns` | `POST/GET /api/checkins/children/{childId}` |
 | QR child login | `apiGetChildPairingToken` | `POST /api/auth/children/{childId}/pairing-token`, `POST /api/auth/pairing/exchange` |
-| Real average progress | n/a (FE proxy in `dashboard/page.tsx` and `statistics/page.tsx`) | `avgProgressPercent` / `weeklyConsistency` on dashboard response, once metrics above exist |
+| Real average progress | `apiGetDashboard` → `avgProgressPercent`, `weeklyConsistency` | computed on the dashboard response from reported step metrics |
+| Statistics filtering | `apiGetDashboardByActivityType` | `GET …/dashboard?activityType=…` |
+
+## Extensibility notes (for future upgrades)
+
+- **New metrics need no schema redesign**: add a nullable column to `ActivityRecord` + a field on `ActivityMetricsDto`; apps that don't send it stay valid (the dashboard shows "not available"). The standardized `abilityhub.usage.v1` payload already carries `metrics` as an open, optional object.
+- **Check-in questions** are stored as free strings (not DB enums), so new mood/context options ship without a migration. The check-in controller is a self-contained slice that can be extracted into its own microservice later without changing the public `/api/checkins` contract.
+- **Pairing** issues opaque, hashed, single-use tokens — the same mechanism extends to any future device-pairing flow; moving Auth to asymmetric JWT (roadmap Phase 6) doesn't affect it.

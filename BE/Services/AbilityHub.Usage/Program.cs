@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using AbilityHub.Usage;
+using AbilityHub.Usage.Hubs;
 using AbilityHub.Usage.Repositories;
 using AbilityHub.Usage.Services;
 using AbilityHub.ServiceClients;
@@ -24,8 +25,16 @@ builder.Services.AddDbContext<UsageDbContext>(options =>
             maxRetryDelay: TimeSpan.FromSeconds(10),
             errorNumbersToAdd: null)));
 
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<AbilityHub.Usage.Mapping.UsageMappingProfile>());
+
+// Realtime push: when a child reports usage, notify the child's app + watching guardians.
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IUsageNotifier, UsageNotifier>();
+
 builder.Services.AddScoped<IUsageRepository, UsageRepository>();
 builder.Services.AddScoped<IUsageService, UsageService>();
+builder.Services.AddScoped<ICheckInRepository, CheckInRepository>();
+builder.Services.AddScoped<ICheckInService, CheckInService>();
 
 // Authentication: validate JWTs issued by the Auth service.
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -44,6 +53,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.Zero
+        };
+
+        // WebSocket clients can't set an Authorization header on the upgrade, so
+        // SignalR passes the token as ?access_token=... — read it for hub paths.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -85,6 +110,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<UsageHub>("/hubs/usage");
 app.MapHealthChecks("/health");
 
 app.Run();

@@ -1,3 +1,4 @@
+using AutoMapper;
 using MassTransit;
 using AbilityHub.Settings.Controllers.DTOs;
 using AbilityHub.Settings.Entities;
@@ -9,11 +10,13 @@ namespace AbilityHub.Settings.Services;
 public class SettingsService(
     IPreferenceRepository preferences,
     IRestrictionRepository restrictions,
-    IPublishEndpoint publishEndpoint) : ISettingsService
+    IPublishEndpoint publishEndpoint,
+    IMapper mapper) : ISettingsService
 {
     private readonly IPreferenceRepository _preferences = preferences;
     private readonly IRestrictionRepository _restrictions = restrictions;
     private readonly IPublishEndpoint _publishEndpoint = publishEndpoint;
+    private readonly IMapper _mapper = mapper;
 
     public async Task<Dictionary<string, string>> GetPreferencesAsync(Guid childId, Guid? applicationId)
     {
@@ -36,11 +39,10 @@ public class SettingsService(
     public async Task<RestrictionResponse> GetRestrictionAsync(Guid childId, Guid applicationId)
     {
         var restriction = await _restrictions.GetAsync(childId, applicationId);
-        return new RestrictionResponse
-        {
-            DailyTimeLimitMinutes = restriction?.DailyTimeLimitMinutes,
-            IsBlocked = restriction?.IsBlocked ?? false
-        };
+        // AutoMapper can't map from null, so default the "no restriction set" case.
+        return restriction is null
+            ? new RestrictionResponse()
+            : _mapper.Map<RestrictionResponse>(restriction);
     }
 
     public async Task SetRestrictionAsync(Guid childId, Guid applicationId, RestrictionRequest request, Guid updatedByGuardianId)

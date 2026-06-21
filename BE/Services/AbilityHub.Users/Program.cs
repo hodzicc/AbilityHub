@@ -31,6 +31,8 @@ builder.Services.AddDbContext<UsersDbContext>(options =>
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<AbilityHub.Users.Mapping.UsersMappingProfile>());
+
 // Authentication: validate JWTs issued by the Auth service (same key/issuer/audience).
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is not configured.");

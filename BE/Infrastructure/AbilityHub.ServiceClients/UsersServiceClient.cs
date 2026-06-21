@@ -10,6 +10,26 @@ public class UsersServiceClient(HttpClient httpClient, ILogger<UsersServiceClien
     private readonly ILogger<UsersServiceClient> _logger = logger;
 
     private sealed record UserRef(Guid Id);
+    private sealed record UserProfile(DateTime? DateOfBirth);
+
+    public async Task<DateTime?> GetUserDateOfBirthAsync(Guid userId)
+    {
+        try
+        {
+            // Forwards the caller's bearer token, so Users applies its own authorization.
+            var response = await _httpClient.GetAsync($"/api/users/{userId}");
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var profile = await response.Content.ReadFromJsonAsync<UserProfile>();
+            return profile?.DateOfBirth;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Profile lookup against Users service failed for {UserId}.", userId);
+            return null;
+        }
+    }
 
     public async Task<bool> IsGuardianOfChildAsync(Guid guardianId, Guid childId)
     {

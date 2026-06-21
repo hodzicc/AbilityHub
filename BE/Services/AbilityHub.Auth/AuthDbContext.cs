@@ -9,6 +9,7 @@ public class AuthDbContext(DbContextOptions<AuthDbContext> options) : DbContext(
     public DbSet<Credential> Credentials { get; set; }
     public DbSet<Role> Roles { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<PairingToken> PairingTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,5 +24,9 @@ public class AuthDbContext(DbContextOptions<AuthDbContext> options) : DbContext(
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<RefreshToken>();
+
+        // Pairing tokens are looked up by their hash during QR-code exchange.
+        modelBuilder.Entity<PairingToken>()
+            .HasIndex(t => t.TokenHash);
     }
 }

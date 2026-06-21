@@ -1,8 +1,12 @@
 // Central API client — all calls go through the Gateway at NEXT_PUBLIC_API_URL.
 
 import { ROLE_ID } from '@/lib/constants'
+import type { ActivityMetrics, WeeklyCheckIn } from '@/lib/types'
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5046'
+// API gateway base URL — read from the environment (.env.local: NEXT_PUBLIC_API_URL).
+// Exported so other modules (e.g. the realtime hook) don't re-hardcode it.
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5046'
+const BASE = API_BASE_URL
 
 // ---------- token helpers ----------
 
@@ -140,6 +144,10 @@ export interface DashboardResponse {
   generatedAt: string
   totalUsageMinutes: number
   activityCount: number
+  // Real step-level progress (0–100) and 7-day routine consistency (0–1).
+  // Null when no activity reported the underlying metrics yet.
+  avgProgressPercent: number | null
+  weeklyConsistency: number | null
   perApp: AppUsageDto[]
   recentActivities: RecentActivityDto[]
   recommendations: string[]
@@ -153,12 +161,19 @@ export interface AppUsageDto {
 }
 
 export interface RecentActivityDto {
+  id: string
   applicationId: string
   activityType: string
   name: string
   score?: number
   occurredAt: string
   detail?: string
+  // True while the child is still working through the activity (live step
+  // progress); false/absent once it's finished.
+  inProgress?: boolean
+  // Accessibility metrics, embedded per activity. Undefined when the reporting
+  // app sent none (frontend renders "Nije dostupno").
+  metrics?: ActivityMetrics
 }
 
 export interface RestrictionResponse {
@@ -261,6 +276,8 @@ export async function apiCreateUser(data: {
   lastName: string
   roleId: number
   guardianId?: string
+  dateOfBirth?: string
+  gender?: string
 }): Promise<CreateUserResponse> {
   return apiFetch('/api/auth/users', {
     method: 'POST',
@@ -365,6 +382,39 @@ export async function apiGetDashboard(childId: string): Promise<DashboardRespons
 
 export async function apiGetLimitStatus(childId: string, appId: string): Promise<LimitStatusResponse> {
   return apiFetch(`/api/usage/children/${childId}/apps/${appId}/limit-status`)
+}
+
+/** Dashboard scoped to a single activity type (statistics filtering). */
+export async function apiGetDashboardByActivityType(
+  childId: string,
+  activityType: string
+): Promise<DashboardResponse> {
+  return apiFetch(`/api/usage/children/${childId}/dashboard?activityType=${encodeURIComponent(activityType)}`)
+}
+
+// ---------- Weekly parent check-ins ----------
+
+export async function apiSubmitWeeklyCheckIn(
+  data: Omit<WeeklyCheckIn, 'id' | 'createdAt'>
+): Promise<WeeklyCheckIn> {
+  // childId travels in the path; the rest of the object is the request body.
+  return apiFetch(`/api/checkins/children/${data.childId}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function apiGetWeeklyCheckIns(childId: string): Promise<WeeklyCheckIn[]> {
+  return apiFetch(`/api/checkins/children/${childId}`)
+}
+
+// ---------- QR child device pairing ----------
+
+/** Issues a short-lived, single-use pairing token the mobile app exchanges for a session. */
+export async function apiGetChildPairingToken(
+  childId: string
+): Promise<{ token: string; expiresAt: string }> {
+  return apiFetch(`/api/auth/children/${childId}/pairing-token`, { method: 'POST' })
 }
 
 // ---------- Per-app Settings ----------

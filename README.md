@@ -6,9 +6,13 @@ Centralizovana platforma za integraciju web i mobilnih aplikacija za osobe sa Do
 
 ```txt
 AbilityHub/
-  FE/   Next.js frontend aplikacija
-  BE/   Backend aplikacija, dodaje backend tim
+  FE/          Next.js web aplikacija (roditelj / admin)
+  BE/          .NET 9 mikroservisi iza API gatewaya
+  MobileApp/   Flutter referentna mobilna aplikacija (korisnik / dijete)
 ```
+
+Mobilna aplikacija (QR/lozinka prijava, sinhronizacija preferencija, prijava
+aktivnosti s metrikama) ima vlastiti vodič za pokretanje u `MobileApp/README.md`.
 
 ## Frontend
 

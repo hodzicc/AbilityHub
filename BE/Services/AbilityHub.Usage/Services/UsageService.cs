@@ -1,3 +1,4 @@
+using AutoMapper;
 using AbilityHub.ServiceClients;
 using AbilityHub.Usage.Controllers.DTOs;
 using AbilityHub.Usage.Entities;
@@ -5,12 +6,14 @@ using AbilityHub.Usage.Repositories;
 
 namespace AbilityHub.Usage.Services;
 
-public class UsageService(IUsageRepository repository, ISettingsServiceClient settingsClient) : IUsageService
+public class UsageService(IUsageRepository repository, ISettingsServiceClient settingsClient, IMapper mapper) : IUsageService
 {
     private const int RecentActivityLimit = 20;
+    private const int ConsistencyWindowDays = 7;
 
     private readonly IUsageRepository _repository = repository;
     private readonly ISettingsServiceClient _settingsClient = settingsClient;
+    private readonly IMapper _mapper = mapper;
 
     public async Task ReportAsync(Guid childId, UsageReportRequest report)
     {
@@ -18,41 +21,58 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
         {
             var duration = (int)Math.Max(0, (session.EndedAt - session.StartedAt).TotalSeconds);
 
-            await _repository.AddSessionAsync(new UsageSession
+            var record = new UsageSession
             {
-                Id = Guid.NewGuid(),
+                Id = session.Id ?? Guid.NewGuid(),
                 ChildId = childId,
                 ApplicationId = report.ApplicationId,
                 StartedAt = session.StartedAt,
                 EndedAt = session.EndedAt,
                 DurationSeconds = duration,
                 ReportedAt = DateTime.UtcNow
-            });
+            };
+
+            // With an id, the app is heart-beating one foreground period — update in
+            // place; without one, it's a discrete one-shot session — insert.
+            if (session.Id.HasValue)
+                await _repository.UpsertSessionAsync(record);
+            else
+                await _repository.AddSessionAsync(record);
         }
 
         if (report.Activities.Count > 0)
         {
-            var records = report.Activities.Select(a => new ActivityRecord
-            {
-                Id = Guid.NewGuid(),
-                ChildId = childId,
-                ApplicationId = report.ApplicationId,
-                ActivityType = a.ActivityType,
-                Name = a.Name,
-                Score = a.Score,
-                OccurredAt = a.OccurredAt == default ? DateTime.UtcNow : a.OccurredAt,
-                Detail = a.Detail
-            });
+            // Activities carrying an id are live progress updates (upsert one row as
+            // the child advances); the rest are one-shot completed activities (insert).
+            var toInsert = new List<ActivityRecord>();
 
-            await _repository.AddActivitiesAsync(records);
+            foreach (var a in report.Activities)
+            {
+                var record = _mapper.Map<ActivityRecord>(a);
+                record.ChildId = childId;
+                record.ApplicationId = report.ApplicationId;
+
+                if (a.Id.HasValue)
+                    await _repository.UpsertActivityAsync(record);
+                else
+                    toInsert.Add(record);
+            }
+
+            if (toInsert.Count > 0)
+                await _repository.AddActivitiesAsync(toInsert);
         }
     }
 
-    public async Task<DashboardResponse> GetDashboardAsync(Guid childId)
+    public async Task<DashboardResponse> GetDashboardAsync(Guid childId, string? activityType = null)
     {
+        var filter = string.IsNullOrWhiteSpace(activityType) ? null : activityType;
+
         var perApp = await _repository.GetPerAppAggregatesAsync(childId);
-        var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit);
-        var activityCount = await _repository.GetActivityCountAsync(childId);
+        var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, filter);
+        var activityCount = await _repository.GetActivityCountAsync(childId, filter);
+        var stepCompletions = await _repository.GetStepCompletionsAsync(childId, filter);
+        var activeDays = await _repository.GetActiveDaysSinceAsync(
+            childId, DateTime.UtcNow.Date.AddDays(-(ConsistencyWindowDays - 1)), filter);
 
         return new DashboardResponse
         {
@@ -60,25 +80,28 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
             GeneratedAt = DateTime.UtcNow,
             TotalUsageMinutes = perApp.Sum(a => a.TotalSeconds) / 60,
             ActivityCount = activityCount,
-            PerApp = perApp
-                .OrderByDescending(a => a.TotalSeconds)
-                .Select(a => new AppUsageDto
-                {
-                    ApplicationId = a.ApplicationId,
-                    SessionCount = a.SessionCount,
-                    TotalMinutes = a.TotalSeconds / 60,
-                    LastUsedAt = a.LastUsedAt
-                }).ToList(),
-            RecentActivities = recent.Select(a => new ActivityDto
-            {
-                ActivityType = a.ActivityType,
-                Name = a.Name,
-                Score = a.Score,
-                OccurredAt = a.OccurredAt,
-                Detail = a.Detail
-            }).ToList(),
+            AvgProgressPercent = ComputeAvgProgressPercent(stepCompletions),
+            WeeklyConsistency = ComputeWeeklyConsistency(activeDays),
+            PerApp = _mapper.Map<List<AppUsageDto>>(perApp.OrderByDescending(a => a.TotalSeconds)),
+            RecentActivities = _mapper.Map<List<RecentActivityDto>>(recent),
             Recommendations = BuildRecommendations(perApp, recent)
         };
+    }
+
+    // Average of per-activity step-completion ratios, as a 0–100 percentage. This is
+    // the real progress signal the advisor asked for (completed sub-steps / total),
+    // replacing the frontend's "apps with any usage" proxy.
+    private static double? ComputeAvgProgressPercent(IReadOnlyList<StepCompletion> completions)
+    {
+        if (completions.Count == 0) return null;
+        var avgRatio = completions.Average(c => (double)c.Completed / c.Total);
+        return Math.Round(Math.Clamp(avgRatio, 0, 1) * 100, 1);
+    }
+
+    private static double? ComputeWeeklyConsistency(IReadOnlyList<DateTime> activeDays)
+    {
+        if (activeDays.Count == 0) return null;
+        return Math.Round(Math.Min(activeDays.Count, ConsistencyWindowDays) / (double)ConsistencyWindowDays, 2);
     }
 
     public async Task<LimitStatusResponse> GetLimitStatusAsync(Guid childId, Guid applicationId)

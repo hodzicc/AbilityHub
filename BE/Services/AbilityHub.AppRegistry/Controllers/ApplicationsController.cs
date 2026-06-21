@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.AppRegistry.Controllers.DTOs;
@@ -15,10 +15,12 @@ namespace AbilityHub.AppRegistry.Controllers;
 public class ApplicationsController : ControllerBase
 {
     private readonly IApplicationRepository _applications;
+    private readonly IMapper _mapper;
 
-    public ApplicationsController(IApplicationRepository applications)
+    public ApplicationsController(IApplicationRepository applications, IMapper mapper)
     {
         _applications = applications;
+        _mapper = mapper;
     }
 
     // GET: api/apps — browse the catalog (active only unless an admin asks for all).
@@ -27,7 +29,7 @@ public class ApplicationsController : ControllerBase
     {
         var showAll = includeInactive && User.IsInRole(Roles.Admin);
         var apps = await _applications.GetAllAsync(showAll);
-        return Ok(apps.Select(ToResponse));
+        return Ok(_mapper.Map<List<ApplicationResponse>>(apps));
     }
 
     // GET: api/apps/{id}
@@ -35,7 +37,7 @@ public class ApplicationsController : ControllerBase
     public async Task<IActionResult> GetById(Guid id)
     {
         var app = await _applications.GetByIdAsync(id);
-        return app is null ? NotFound() : Ok(ToResponse(app));
+        return app is null ? NotFound() : Ok(_mapper.Map<ApplicationResponse>(app));
     }
 
     // POST: api/apps — register an app (admin).
@@ -62,12 +64,12 @@ public class ApplicationsController : ControllerBase
             MaxAge = request.MaxAge,
             FeaturesJson = request.FeaturesJson,
             IsActive = true,
-            CreateUserId = CurrentUserId,
+            CreateUserId = User.GetUserId(),
             CreatedAt = DateTime.UtcNow
         };
 
         await _applications.AddAsync(app);
-        return CreatedAtAction(nameof(GetById), new { id = app.Id }, ToResponse(app));
+        return CreatedAtAction(nameof(GetById), new { id = app.Id }, _mapper.Map<ApplicationResponse>(app));
     }
 
     // PUT: api/apps/{id} — update (admin).
@@ -91,11 +93,11 @@ public class ApplicationsController : ControllerBase
         app.MinAge = request.MinAge;
         app.MaxAge = request.MaxAge;
         app.FeaturesJson = request.FeaturesJson;
-        app.UpdateUserId = CurrentUserId;
+        app.UpdateUserId = User.GetUserId();
         app.UpdatedAt = DateTime.UtcNow;
 
         await _applications.UpdateAsync(app);
-        return Ok(ToResponse(app));
+        return Ok(_mapper.Map<ApplicationResponse>(app));
     }
 
     // DELETE: api/apps/{id} — deactivate (admin, soft delete).
@@ -108,33 +110,10 @@ public class ApplicationsController : ControllerBase
             return NotFound();
 
         app.IsActive = false;
-        app.UpdateUserId = CurrentUserId;
+        app.UpdateUserId = User.GetUserId();
         app.UpdatedAt = DateTime.UtcNow;
 
         await _applications.UpdateAsync(app);
         return NoContent();
     }
-
-    private Guid CurrentUserId
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
-
-    private static ApplicationResponse ToResponse(Application a) => new()
-    {
-        Id = a.Id,
-        Key = a.Key,
-        Name = a.Name,
-        Platform = a.Platform,
-        Version = a.Version,
-        DataFormat = a.DataFormat,
-        Description = a.Description,
-        IsActive = a.IsActive,
-        Category = a.Category,
-        IconName = a.IconName,
-        Color = a.Color,
-        MinAge = a.MinAge,
-        MaxAge = a.MaxAge,
-        FeaturesJson = a.FeaturesJson
-    };
 }

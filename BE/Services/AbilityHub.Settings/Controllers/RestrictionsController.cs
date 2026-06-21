@@ -1,8 +1,8 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.ServiceClients;
 using AbilityHub.Settings.Controllers.DTOs;
+using AbilityHub.Settings.Hubs;
 using AbilityHub.Settings.Services;
 using AbilityHub.Shared.Common;
 
@@ -15,11 +15,13 @@ public class RestrictionsController : ControllerBase
 {
     private readonly ISettingsService _settings;
     private readonly IUsersServiceClient _usersClient;
+    private readonly ISettingsNotifier _notifier;
 
-    public RestrictionsController(ISettingsService settings, IUsersServiceClient usersClient)
+    public RestrictionsController(ISettingsService settings, IUsersServiceClient usersClient, ISettingsNotifier notifier)
     {
         _settings = settings;
         _usersClient = usersClient;
+        _notifier = notifier;
     }
 
     // GET: the usage restriction for a (child, app).
@@ -35,18 +37,15 @@ public class RestrictionsController : ControllerBase
     public async Task<IActionResult> Set(Guid childId, Guid appId, [FromBody] RestrictionRequest request)
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
-        await _settings.SetRestrictionAsync(childId, appId, request, CurrentUserId);
+        await _settings.SetRestrictionAsync(childId, appId, request, User.GetUserId());
+        // Push to the child's connected app so the new limit/block applies instantly.
+        await _notifier.NotifyChildAsync(childId, "restriction", appId);
         return NoContent();
     }
-
-    private Guid CurrentUserId
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
 
     private async Task<bool> CanManageChildAsync(Guid childId)
     {
         if (User.IsInRole(Roles.Admin)) return true;
-        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(CurrentUserId, childId);
+        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { UIPreferences, NotificationSettings } from '@/lib/types'
 import { DEFAULT_PREFERENCES as defaultPreferences } from '@/lib/preferences'
 
@@ -23,21 +23,22 @@ const defaultNotifications: NotificationSettings = {
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [preferences, setPreferences] = useState<UIPreferences>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('abilityhub-preferences')
-      return stored ? { ...defaultPreferences, ...JSON.parse(stored) } : defaultPreferences
-    }
-    return defaultPreferences
-  })
+  // Start from defaults so server HTML and the first client render match; the
+  // stored values are applied right after mount (see effect) to avoid a
+  // hydration mismatch.
+  const [preferences, setPreferences] = useState<UIPreferences>(defaultPreferences)
+  const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications)
 
-  const [notifications, setNotifications] = useState<NotificationSettings>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('abilityhub-notifications')
-      return stored ? JSON.parse(stored) : defaultNotifications
+  useEffect(() => {
+    try {
+      const storedPrefs = localStorage.getItem('abilityhub-preferences')
+      if (storedPrefs) setPreferences({ ...defaultPreferences, ...JSON.parse(storedPrefs) })
+      const storedNotifs = localStorage.getItem('abilityhub-notifications')
+      if (storedNotifs) setNotifications({ ...defaultNotifications, ...JSON.parse(storedNotifs) })
+    } catch {
+      // Ignore malformed stored values; defaults remain in effect.
     }
-    return defaultNotifications
-  })
+  }, [])
 
   const updatePreferences = useCallback((prefs: Partial<UIPreferences>) => {
     setPreferences(prev => {

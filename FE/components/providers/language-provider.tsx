@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { Language } from '@/lib/types'
 import { defaultLocale } from '@/lib/i18n/config'
 import bsMessages from '@/lib/i18n/bs.json'
@@ -37,13 +37,19 @@ function getNestedValue(obj: Record<string, unknown>, path: string): string | un
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('abilityhub-locale') as Language | null
-      return stored || defaultLocale
+  // Always start from the default locale so the server HTML and the first client
+  // render match (avoids a hydration mismatch). The stored preference is applied
+  // right after mount in the effect below.
+  const [locale, setLocaleState] = useState<Language>(defaultLocale)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('abilityhub-locale') as Language | null
+    if (stored && stored !== locale) {
+      setLocaleState(stored)
     }
-    return defaultLocale
-  })
+    // Run once on mount; we deliberately don't depend on `locale`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const messages = messagesMap[locale]
 

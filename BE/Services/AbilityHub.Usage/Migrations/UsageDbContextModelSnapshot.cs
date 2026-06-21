@@ -35,11 +35,29 @@ namespace AbilityHub.Usage.Migrations
                     b.Property<Guid>("ApplicationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AttributesJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("ChildId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool?>("CompletedViaAction")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Detail")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ErrorsCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("HintsShown")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("InProgress")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -50,6 +68,15 @@ namespace AbilityHub.Usage.Migrations
 
                     b.Property<double?>("Score")
                         .HasColumnType("float");
+
+                    b.Property<bool?>("StartedViaAction")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("StepsCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StepsTotal")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -87,6 +114,62 @@ namespace AbilityHub.Usage.Migrations
                     b.HasIndex("ChildId", "ApplicationId", "StartedAt");
 
                     b.ToTable("UsageSessions");
+                });
+
+            modelBuilder.Entity("AbilityHub.Usage.Entities.WeeklyCheckIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChildId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DayContext")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DayContextNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GeneralNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("HelpLevel")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MoodAfter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MoodBefore")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PerformanceQuality")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("SafetyIncident")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SafetyIncidentNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool?>("UsesSkillOutsideApp")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly>("WeekStartDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildId", "WeekStartDate")
+                        .IsUnique();
+
+                    b.ToTable("WeeklyCheckIns");
                 });
 #pragma warning restore 612, 618
         }

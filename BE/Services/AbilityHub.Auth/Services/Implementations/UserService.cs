@@ -55,7 +55,9 @@ public class UserService(
             request.FirstName,
             request.LastName,
             request.RoleId,
-            guardianId));
+            guardianId,
+            request.DateOfBirth,
+            request.Gender));
 
         return new CreateUserResponse
         {

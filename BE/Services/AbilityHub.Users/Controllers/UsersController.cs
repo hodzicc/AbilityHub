@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.Shared.Common;
@@ -14,10 +14,12 @@ namespace AbilityHub.Users.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
+    private readonly IMapper _mapper;
 
-    public UsersController(IUserRepository userRepository)
+    public UsersController(IUserRepository userRepository, IMapper mapper)
     {
         _userRepository = userRepository;
+        _mapper = mapper;
     }
 
     // GET: api/users?page=1&pageSize=20 — full directory (admin only).
@@ -31,15 +33,15 @@ public class UsersController : ControllerBase
         var (items, total) = await _userRepository.GetPagedAsync(page, pageSize);
 
         return Ok(new PagedResult<UserProfileResponse>(
-            items.Select(ToResponse).ToList(), page, pageSize, total));
+            _mapper.Map<List<UserProfileResponse>>(items), page, pageSize, total));
     }
 
     // GET: api/users/me — the current user's own profile.
     [HttpGet("me")]
     public async Task<IActionResult> GetMe()
     {
-        var user = await _userRepository.GetByIdAsync(CurrentUserId);
-        return user is null ? NotFound() : Ok(ToResponse(user));
+        var user = await _userRepository.GetByIdAsync(User.GetUserId());
+        return user is null ? NotFound() : Ok(_mapper.Map<UserProfileResponse>(user));
     }
 
     // GET: api/users/{id} — admin, the user themselves, or a guardian of that user.
@@ -50,47 +52,45 @@ public class UsersController : ControllerBase
             return Forbid();
 
         var user = await _userRepository.GetByIdAsync(id);
-        return user is null ? NotFound() : Ok(ToResponse(user));
+        return user is null ? NotFound() : Ok(_mapper.Map<UserProfileResponse>(user));
     }
 
-    // PUT: api/users/{id} — update profile (admin or the user themselves).
+    // PUT: api/users/{id} — update profile (admin, the user themselves, or a guardian
+    // of that user — so a parent can edit their child's name/DOB/gender).
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProfileRequest request)
     {
-        if (!(IsAdmin || id == CurrentUserId))
+        if (!await CanAccessUserAsync(id))
             return Forbid();
 
         var user = await _userRepository.GetByIdAsync(id);
         if (user is null)
             return NotFound();
 
-        user.FirstName = request.FirstName;
-        user.LastName = request.LastName;
-        if (request.DateOfBirth.HasValue) user.DateOfBirth = request.DateOfBirth;
-        if (request.Gender is not null) user.Gender = request.Gender;
-        user.UpdateUserId = CurrentUserId;
+        _mapper.Map(request, user);
+        user.UpdateUserId = User.GetUserId();
         user.UpdatedAt = DateTime.UtcNow;
 
         await _userRepository.UpdateAsync(user);
-        return Ok(ToResponse(user));
+        return Ok(_mapper.Map<UserProfileResponse>(user));
     }
 
     // GET: api/users/{guardianId}/children — children of a guardian (admin or that guardian).
     [HttpGet("{guardianId:guid}/children")]
     public async Task<IActionResult> GetChildren(Guid guardianId)
     {
-        if (!(IsAdmin || guardianId == CurrentUserId))
+        if (!(IsAdmin || guardianId == User.GetUserId()))
             return Forbid();
 
         var children = await _userRepository.GetChildrenAsync(guardianId);
-        return Ok(children.Select(ToResponse));
+        return Ok(_mapper.Map<List<UserProfileResponse>>(children));
     }
 
     // POST: api/users/{guardianId}/children — link a child (admin or that guardian).
     [HttpPost("{guardianId:guid}/children")]
     public async Task<IActionResult> LinkChild(Guid guardianId, [FromBody] LinkChildRequest request)
     {
-        if (!(IsAdmin || guardianId == CurrentUserId))
+        if (!(IsAdmin || guardianId == User.GetUserId()))
             return Forbid();
 
         var guardian = await _userRepository.GetByIdAsync(guardianId);
@@ -118,7 +118,7 @@ public class UsersController : ControllerBase
     [HttpDelete("{guardianId:guid}/children/{childId:guid}")]
     public async Task<IActionResult> UnlinkChild(Guid guardianId, Guid childId)
     {
-        if (!(IsAdmin || guardianId == CurrentUserId))
+        if (!(IsAdmin || guardianId == User.GetUserId()))
             return Forbid();
 
         var removed = await _userRepository.RemoveLinkAsync(guardianId, childId);
@@ -127,33 +127,15 @@ public class UsersController : ControllerBase
 
     // --- authorization helpers ---
 
-    private Guid CurrentUserId
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
-
     private bool IsAdmin => User.IsInRole(Roles.Admin);
 
     private async Task<bool> CanAccessUserAsync(Guid targetUserId)
     {
-        if (IsAdmin || targetUserId == CurrentUserId)
+        if (IsAdmin || targetUserId == User.GetUserId())
             return true;
 
         // A parent may view their own children.
         return User.IsInRole(Roles.Parent)
-            && await _userRepository.IsGuardianOfAsync(CurrentUserId, targetUserId);
+            && await _userRepository.IsGuardianOfAsync(User.GetUserId(), targetUserId);
     }
-
-    private static UserProfileResponse ToResponse(User user) => new()
-    {
-        Id = user.Id,
-        Email = user.Email,
-        FirstName = user.FirstName,
-        LastName = user.LastName,
-        RoleId = user.RoleId,
-        IsActive = user.IsActive,
-        DateOfBirth = user.DateOfBirth,
-        Gender = user.Gender,
-        CreatedAt = user.CreatedAt
-    };
 }

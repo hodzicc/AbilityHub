@@ -32,11 +32,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 
+// Allowed browser origins are configurable (Cors:AllowedOrigins) so the web app,
+// the Flutter-web reference app, and any future client can be added without code
+// changes. Defaults cover the Next.js web app (3000) and the Flutter web dev
+// server when run on a fixed port (8090) — see MobileApp/README.md.
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:3000", "http://localhost:8090"];
+
+const string corsPolicy = "web";
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy(corsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -78,11 +86,16 @@ app.UseSwaggerUI(options =>
 // Hitting the gateway root drops you straight onto Swagger.
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
-app.UseCors();
+// Apply the policy by name so it covers ALL requests — including the YARP-proxied
+// routes, which carry no per-endpoint CORS metadata. This lets the gateway answer
+// the browser's preflight OPTIONS itself instead of forwarding it to a service
+// (which would reject OPTIONS with 405).
+app.UseCors(corsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapReverseProxy();
+// RequireCors makes the preflight short-circuit explicit on the proxy endpoints.
+app.MapReverseProxy().RequireCors(corsPolicy);
 
 app.Run();

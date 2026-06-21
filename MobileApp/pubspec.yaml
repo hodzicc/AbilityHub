@@ -1,0 +1,38 @@
+name: abilityhub_mobile
+description: AbilityHub reference mobile app — QR/credential login, preference sync, usage + accessibility-metric reporting.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP client for talking to the AbilityHub gateway.
+  http: ^1.2.2
+  # Simple app-wide state (auth session + resolved preferences).
+  provider: ^6.1.2
+  # Persist the access/refresh tokens across launches.
+  shared_preferences: ^2.3.2
+  # QR scanning for child device pairing (camera). Works on Android/iOS/web.
+  mobile_scanner: ^5.2.3
+  # Lets the "font family" preference map to real, legibility-focused fonts.
+  google_fonts: ^6.2.1
+  # Realtime push from the platform (instant limit/preference updates) via SignalR.
+  signalr_netcore: ^1.3.7
+  # Reads configuration (API base URL, app key) from a .env file instead of code.
+  flutter_dotenv: ^5.1.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # The .env file is bundled so configuration is read from it at runtime.
+  assets:
+    - .env

@@ -121,10 +121,19 @@ export function AssignAppsDialog({
         )
       }
       if (failed > 0) {
+        // Surface the backend's reason when there is one (e.g. age out of range)
+        // instead of only a generic failure count.
+        const firstRejection = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined
+        let reason = ''
+        try {
+          const body = (firstRejection?.reason as { message?: string })?.message
+          if (body) reason = (JSON.parse(body) as { message?: string }).message ?? ''
+        } catch {}
         toast.error(
-          failed === 1
-            ? t('applications.assignOneError')
-            : t('applications.assignManyError', { count: failed })
+          reason ||
+            (failed === 1
+              ? t('applications.assignOneError')
+              : t('applications.assignManyError', { count: failed }))
         )
       }
 

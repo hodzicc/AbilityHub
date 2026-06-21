@@ -17,7 +17,7 @@ import {
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DayContext, HelpLevel, Mood, PerformanceQuality, WeeklyCheckIn } from '@/lib/types'
-import { apiGetWeeklyCheckIns, apiSubmitWeeklyCheckIn } from '@/lib/api/mocks'
+import { apiGetWeeklyCheckIns, apiSubmitWeeklyCheckIn } from '@/lib/api'
 
 const MOOD_VALUES: Mood[] = ['great', 'good', 'neutral', 'difficult', 'hard']
 const HELP_LEVEL_VALUES: HelpLevel[] = ['none', 'minimal', 'moderate', 'extensive']

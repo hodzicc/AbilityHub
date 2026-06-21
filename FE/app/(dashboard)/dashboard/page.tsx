@@ -30,6 +30,7 @@ import {
 import { useTheme } from 'next-themes'
 import { apiGetChildren, apiGetApps, apiGetAllUsers, apiGetDashboard, type DashboardResponse } from '@/lib/api'
 import { ROLE_ID } from '@/lib/constants'
+import { useUsageRealtime } from '@/lib/realtime/use-usage-realtime'
 
 interface DashStats {
   childrenCount: number
@@ -113,6 +114,9 @@ export default function DashboardPage() {
     avgProgress: 0,
     weeklyData: [],
   })
+  // Children to watch over realtime, and a counter the push bumps to re-load.
+  const [watchedIds, setWatchedIds] = useState<string[]>([])
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     if (!user) return
@@ -125,19 +129,26 @@ export default function DashboardPage() {
           : apiGetChildren(user.id).catch(() => []),
       ])
 
+      setWatchedIds(childProfiles.map(c => c.id))
+
       const dashboards = isAdmin ? [] : await Promise.all(
         childProfiles.map(c => apiGetDashboard(c.id).catch(() => null as DashboardResponse | null))
       )
 
       const todayUsage = dashboards.reduce((sum, d) => sum + (d?.totalUsageMinutes ?? 0), 0)
 
-      // Provisional progress proxy: share of per-app usage entries with any
-      // recorded minutes. Stand-in until the backend reports real step-level
-      // completion data — see BE/API_CONTRACTS_NEEDED.md.
+      // Real step-level progress when reported by the backend (avg of completed/
+      // total sub-steps), averaged across children. Falls back to the "share of
+      // apps used" proxy only until activities start reporting step metrics.
+      const reportedProgress = dashboards
+        .map(d => d?.avgProgressPercent)
+        .filter((v): v is number => v != null)
       const perAppEntries = dashboards.flatMap(d => d?.perApp ?? [])
-      const avgProgress = perAppEntries.length === 0
-        ? 0
-        : Math.round((perAppEntries.filter(a => a.totalMinutes > 0).length / perAppEntries.length) * 100)
+      const avgProgress = reportedProgress.length > 0
+        ? Math.round(reportedProgress.reduce((s, v) => s + v, 0) / reportedProgress.length)
+        : perAppEntries.length === 0
+          ? 0
+          : Math.round((perAppEntries.filter(a => a.totalMinutes > 0).length / perAppEntries.length) * 100)
 
       const last7 = Array.from({ length: 7 }, (_, i) => {
         const d = new Date()
@@ -157,7 +168,10 @@ export default function DashboardPage() {
       })
     }
     load()
-  }, [user?.id, locale])
+  }, [user?.id, locale, reloadKey])
+
+  // Re-load the aggregate stats whenever a watched child reports usage.
+  useUsageRealtime(watchedIds, () => setReloadKey(k => k + 1))
 
   return (
     <div className="space-y-6">

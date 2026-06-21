@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # withOpacity is only deprecated on the very newest Flutter; we keep it for
+    # backwards compatibility, so don't let it surface as a warning.
+    deprecated_member_use: ignore

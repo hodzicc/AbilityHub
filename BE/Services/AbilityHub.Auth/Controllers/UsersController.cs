@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.Auth.Services.Interfaces;
@@ -41,7 +40,7 @@ public class UsersController : ControllerBase
         {
             // A parent can only create child accounts, and becomes their guardian.
             request.RoleId = Roles.ChildId;
-            guardianId = GetCurrentUserId();
+            guardianId = User.GetUserId();
         }
 
         var result = await _service.CreateUserAsync(request, guardianId);
@@ -69,9 +68,4 @@ public class UsersController : ControllerBase
         var ok = await _service.ActivateUserAsync(id);
         return ok ? NoContent() : NotFound();
     }
-
-    private Guid GetCurrentUserId()
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
 }

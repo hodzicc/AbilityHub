@@ -6,13 +6,13 @@ import { useTranslation } from '@/components/providers'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, QrCode, RefreshCw } from 'lucide-react'
-import { apiGetChildPairingToken } from '@/lib/api/mocks'
+import { apiGetChildPairingToken } from '@/lib/api'
 
 /**
  * QR pairing code so the child can log in to the mobile app by scanning
- * instead of typing credentials. Backed by a mock token today — see
- * BE/API_CONTRACTS_NEEDED.md for the real pairing-token endpoint the
- * backend should implement; this component swaps over with no UI changes.
+ * instead of typing credentials. The platform issues a short-lived, single-use
+ * token (POST /api/auth/children/{childId}/pairing-token); the mobile app scans
+ * the QR (which encodes { childId, token }) and exchanges it for a session.
  */
 export function QrPairingCard({ childId, childName }: { childId: string; childName: string }) {
   const { t, locale } = useTranslation()

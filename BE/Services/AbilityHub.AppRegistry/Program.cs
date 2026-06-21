@@ -26,6 +26,8 @@ builder.Services.AddDbContext<AppRegistryDbContext>(options =>
             maxRetryDelay: TimeSpan.FromSeconds(10),
             errorNumbersToAdd: null)));
 
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<AbilityHub.AppRegistry.Mapping.AppRegistryMappingProfile>());
+
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IChildApplicationRepository, ChildApplicationRepository>();
 builder.Services.AddScoped<IChildAppService, ChildAppService>();

@@ -1,8 +1,8 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.ServiceClients;
 using AbilityHub.Settings.Controllers.DTOs;
+using AbilityHub.Settings.Hubs;
 using AbilityHub.Settings.Services;
 using AbilityHub.Shared.Common;
 
@@ -15,11 +15,13 @@ public class PreferencesController : ControllerBase
 {
     private readonly ISettingsService _settings;
     private readonly IUsersServiceClient _usersClient;
+    private readonly ISettingsNotifier _notifier;
 
-    public PreferencesController(ISettingsService settings, IUsersServiceClient usersClient)
+    public PreferencesController(ISettingsService settings, IUsersServiceClient usersClient, ISettingsNotifier notifier)
     {
         _settings = settings;
         _usersClient = usersClient;
+        _notifier = notifier;
     }
 
     // GET: global preferences for a child.
@@ -36,6 +38,7 @@ public class PreferencesController : ControllerBase
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
         await _settings.SetPreferencesAsync(childId, null, request.Preferences);
+        await _notifier.NotifyChildAsync(childId, "preferences", null);
         return NoContent();
     }
 
@@ -53,6 +56,7 @@ public class PreferencesController : ControllerBase
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
         await _settings.SetPreferencesAsync(childId, appId, request.Preferences);
+        await _notifier.NotifyChildAsync(childId, "preferences", appId);
         return NoContent();
     }
 
@@ -62,6 +66,7 @@ public class PreferencesController : ControllerBase
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
         await _settings.ClearAppPreferencesAsync(childId, appId);
+        await _notifier.NotifyChildAsync(childId, "preferences", appId);
         return NoContent();
     }
 
@@ -74,17 +79,12 @@ public class PreferencesController : ControllerBase
         return Ok(await _settings.ResolveAsync(childId, appId));
     }
 
-    private Guid CurrentUserId
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
-
     private async Task<bool> CanManageChildAsync(Guid childId)
     {
         if (User.IsInRole(Roles.Admin)) return true;
-        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(CurrentUserId, childId);
+        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 
     private async Task<bool> CanViewResolvedAsync(Guid childId)
-        => childId == CurrentUserId || await CanManageChildAsync(childId);
+        => childId == User.GetUserId() || await CanManageChildAsync(childId);
 }

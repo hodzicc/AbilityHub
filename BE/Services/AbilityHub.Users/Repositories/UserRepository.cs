@@ -12,7 +12,8 @@ namespace AbilityHub.Users.Repositories
 
         public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize)
         {
-            var query = _context.Users.AsNoTracking().OrderBy(u => u.Email);
+            var query = _context.Users.AsNoTracking()
+                .OrderBy(u => u.LastName).ThenBy(u => u.FirstName);
 
             var total = await query.CountAsync();
             var items = await query
@@ -43,7 +44,7 @@ namespace AbilityHub.Users.Repositories
                 .Where(gc => gc.GuardianId == guardianId)
                 .Join(_context.Users, gc => gc.ChildId, u => u.Id, (gc, u) => u)
                 .AsNoTracking()
-                .OrderBy(u => u.Email)
+                .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
                 .ToListAsync();
 
         public async Task<bool> IsGuardianOfAsync(Guid guardianId, Guid childId)

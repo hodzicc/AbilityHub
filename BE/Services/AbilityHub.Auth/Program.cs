@@ -13,6 +13,7 @@ using AbilityHub.Auth.Repositories.Interfaces;
 using AbilityHub.Auth.Repositories.Implementations;
 using AbilityHub.Users.Services;
 using AbilityHub.MessageBus;
+using AbilityHub.ServiceClients;
 using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -90,6 +91,10 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<ICredentialRepository, CredentialRepository>();
+builder.Services.AddScoped<IPairingTokenRepository, PairingTokenRepository>();
+
+// Guardian↔child authorization check for issuing QR pairing tokens (Auth → Users).
+builder.Services.AddUsersServiceClient(builder.Configuration);
 
 // Message bus (publish-only here: Auth announces UserRegistered).
 builder.Services.AddAbilityHubMessageBus(builder.Configuration);

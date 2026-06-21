@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.AppRegistry.Controllers.DTOs;
@@ -43,7 +42,7 @@ public class ChildApplicationsController : ControllerBase
         if (!await CanManageChildAsync(childId))
             return Forbid();
 
-        var outcome = await _childApps.AssignAsync(childId, request.ApplicationId, CurrentUserId);
+        var outcome = await _childApps.AssignAsync(childId, request.ApplicationId, User.GetUserId());
 
         return outcome switch
         {
@@ -51,6 +50,7 @@ public class ChildApplicationsController : ControllerBase
             AssignmentOutcome.AlreadyAssigned => Conflict(new ApiError("already_assigned", "App is already assigned to this child.")),
             AssignmentOutcome.AppNotFound => NotFound(new ApiError("app_not_found", "Application does not exist.")),
             AssignmentOutcome.AppInactive => BadRequest(new ApiError("app_inactive", "Application is not available for assignment.")),
+            AssignmentOutcome.AgeOutOfRange => BadRequest(new ApiError("age_out_of_range", "The child's age is outside this app's allowed range.")),
             _ => StatusCode(500)
         };
     }
@@ -66,11 +66,6 @@ public class ChildApplicationsController : ControllerBase
         return removed ? NoContent() : NotFound();
     }
 
-    private Guid CurrentUserId
-        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
-            ? id
-            : throw new InvalidOperationException("Authenticated user has no valid id claim.");
-
     /// <summary>Admins manage any child; parents only children they are a guardian of.</summary>
     private async Task<bool> CanManageChildAsync(Guid childId)
     {
@@ -78,6 +73,6 @@ public class ChildApplicationsController : ControllerBase
             return true;
 
         return User.IsInRole(Roles.Parent)
-            && await _usersClient.IsGuardianOfChildAsync(CurrentUserId, childId);
+            && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }

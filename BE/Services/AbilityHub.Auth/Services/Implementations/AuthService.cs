@@ -5,6 +5,7 @@ using AbilityHub.Auth.Services.Interfaces;
 using AbilityHub.Auth.Entities;
 using AbilityHub.Auth.Repositories.Interfaces;
 using AbilityHub.Auth.Security;
+using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Auth.Services.Implementations;
 
@@ -12,11 +13,16 @@ public class AuthService(
     IJwtService jwtService,
     ICredentialRepository credentialRepository,
     IAuthRepository authRepository,
+    IPairingTokenRepository pairingTokenRepository,
     IPasswordHasher passwordHasher) : IAuthService
 {
+    // QR pairing codes are meant to be scanned promptly, so they live briefly.
+    private static readonly TimeSpan PairingTokenLifetime = TimeSpan.FromMinutes(5);
+
     private readonly IJwtService _jwtService = jwtService;
     private readonly ICredentialRepository _credentialRepository = credentialRepository;
     private readonly IAuthRepository _authRepository = authRepository;
+    private readonly IPairingTokenRepository _pairingTokenRepository = pairingTokenRepository;
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
 
     public async Task<AuthResponse> LoginAsync(AuthRequest request)
@@ -63,6 +69,50 @@ public class AuthService(
         await _authRepository.UpdateAsync(existing);
     }
 
+    public async Task<PairingTokenResponse?> CreatePairingTokenAsync(Guid childId)
+    {
+        var credential = await _credentialRepository.GetByIdAsync(childId);
+
+        // Only active child accounts can be paired to a device this way.
+        if (credential is null || !credential.IsActive || credential.RoleId != Roles.ChildId)
+            return null;
+
+        // The plaintext goes into the QR code; the database only ever sees its hash.
+        var plaintext = GenerateOpaqueToken();
+        var expiresAt = DateTime.UtcNow.Add(PairingTokenLifetime);
+
+        await _pairingTokenRepository.AddAsync(new PairingToken
+        {
+            Id = Guid.NewGuid(),
+            ChildId = childId,
+            TokenHash = HashToken(plaintext),
+            ExpiresAt = expiresAt,
+            IsUsed = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        return new PairingTokenResponse { Token = plaintext, ExpiresAt = expiresAt };
+    }
+
+    public async Task<AuthResponse> ExchangePairingTokenAsync(PairingExchangeRequest request)
+    {
+        var token = await _pairingTokenRepository.GetByHashAsync(HashToken(request.Token));
+
+        if (token is null || token.IsUsed || token.ExpiresAt <= DateTime.UtcNow)
+            return new AuthResponse { Success = false, Message = "Invalid or expired pairing token" };
+
+        var credential = await _credentialRepository.GetByIdAsync(token.ChildId);
+
+        if (credential is null || !credential.IsActive)
+            return new AuthResponse { Success = false, Message = "Account is unavailable" };
+
+        // Single use: burn the token before issuing a session so a replayed scan fails.
+        token.IsUsed = true;
+        await _pairingTokenRepository.UpdateAsync(token);
+
+        return await IssueTokensAsync(credential);
+    }
+
     private async Task<AuthResponse> IssueTokensAsync(Credential credential)
     {
         var accessToken = _jwtService.GenerateToken(credential);
@@ -89,7 +139,11 @@ public class AuthService(
         };
     }
 
-    private static string GenerateRefreshToken()
+    private static string GenerateRefreshToken() => GenerateOpaqueToken();
+
+    // A high-entropy random value, safe to use as a bearer-style secret (refresh /
+    // pairing token). Only its hash is ever persisted.
+    private static string GenerateOpaqueToken()
         => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
     // Refresh tokens are high-entropy random values, so a fast hash is sufficient

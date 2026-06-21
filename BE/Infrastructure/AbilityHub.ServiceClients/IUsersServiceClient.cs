@@ -8,4 +8,10 @@ namespace AbilityHub.ServiceClients;
 public interface IUsersServiceClient
 {
     Task<bool> IsGuardianOfChildAsync(Guid guardianId, Guid childId);
+
+    /// <summary>
+    /// The user's date of birth, or null if unknown/unavailable. Used by other
+    /// services that need the child's age (e.g. app age-range checks).
+    /// </summary>
+    Task<DateTime?> GetUserDateOfBirthAsync(Guid userId);
 }

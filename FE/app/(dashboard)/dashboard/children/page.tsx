@@ -45,17 +45,23 @@ export default function ChildrenPage() {
   const [editChild, setEditChild] = useState<Child | null>(null)
   const [deleteChild, setDeleteChild] = useState<Child | null>(null)
 
-  const loadChildren = async () => {
+  // `expectId` — a just-created child's id. The profile + guardian link are built
+  // asynchronously from an event, so we briefly poll until it appears (read-after-
+  // write in an eventually-consistent system) rather than show a stale list.
+  const loadChildren = async (expectId?: string) => {
     if (!user) return
     setIsLoading(true)
     try {
-      let profiles: UserProfileResponse[]
-      if (user.role === 'admin') {
-        // Admin sees all children across the system
-        const allUsers = await apiGetAllUsers(1, 200)
-        profiles = allUsers.items.filter(u => u.roleId === ROLE_ID.CHILD)
-      } else {
-        profiles = await apiGetChildren(user.id)
+      let profiles: UserProfileResponse[] = []
+      for (let attempt = 0; attempt < 6; attempt++) {
+        if (user.role === 'admin') {
+          const allUsers = await apiGetAllUsers(1, 200)
+          profiles = allUsers.items.filter(u => u.roleId === ROLE_ID.CHILD)
+        } else {
+          profiles = await apiGetChildren(user.id)
+        }
+        if (!expectId || profiles.some(p => p.id === expectId)) break
+        await new Promise(r => setTimeout(r, 500)) // wait for the create event to land
       }
       const enriched = await Promise.all(
         profiles.map(async p => {
@@ -107,26 +113,22 @@ export default function ChildrenPage() {
       try {
         const email = `child-${Date.now()}@internal.abilityhub.app`
         const password = Math.random().toString(36).slice(-12) + 'Aa1!'
+        // dateOfBirth + gender are set atomically at creation (no racey follow-up update).
         const result = await apiCreateUser({
           email,
           password,
           firstName: childData.firstName,
           lastName: childData.lastName,
           roleId: ROLE_ID.CHILD,
+          dateOfBirth: childData.dateOfBirth.toISOString(),
+          gender: childData.gender,
         })
         if (!result.success) {
           toast.error(t('children.createError'))
           return
         }
-        // Set dateOfBirth and gender via profile update
-        await apiUpdateProfile(result.userId, {
-          firstName: childData.firstName,
-          lastName: childData.lastName,
-          dateOfBirth: childData.dateOfBirth.toISOString(),
-          gender: childData.gender,
-        })
         toast.success(t('children.addSuccess'))
-        await loadChildren()
+        await loadChildren(result.userId)
       } catch {
         toast.error(t('children.addError'))
       }
