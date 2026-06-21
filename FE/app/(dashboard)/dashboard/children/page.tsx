@@ -18,7 +18,7 @@ import {
   apiDeactivateUser,
   type UserProfileResponse,
 } from '@/lib/api'
-import { ROLE_ID } from '@/lib/constants'
+import { ROLE_ID, FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import { toast } from 'sonner'
 
 function profileToChild(p: UserProfileResponse, guardianId: string, assignedApps: string[] = []): Child {
@@ -27,7 +27,7 @@ function profileToChild(p: UserProfileResponse, guardianId: string, assignedApps
     name: `${p.firstName} ${p.lastName}`.trim(),
     firstName: p.firstName,
     lastName: p.lastName,
-    dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : new Date('2015-01-01'),
+    dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
     gender: (p.gender as 'male' | 'female') ?? 'male',
     parentId: guardianId,
     assignedApps,

@@ -9,6 +9,13 @@ export const ROLE_ID = {
 
 export type RoleId = typeof ROLE_ID[keyof typeof ROLE_ID]
 
+// The child-creation form requires a date of birth, so a child profile should
+// never actually have a null one — this only exists as a defensive fallback
+// against malformed/legacy data, since `Child.dateOfBirth` is typed as a
+// required `Date` for `calculateAge()`. Centralized so it isn't a silently
+// duplicated magic literal across every page that maps a profile response.
+export const FALLBACK_DATE_OF_BIRTH = new Date('2015-01-01')
+
 // Single source of truth for application categories: value, default color,
 // and i18n key. Adding a category means adding one entry here (plus the
 // matching i18n string) instead of touching every page that lists categories.

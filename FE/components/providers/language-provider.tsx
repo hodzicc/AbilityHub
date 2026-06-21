@@ -58,7 +58,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     let value = getNestedValue(messages as unknown as Record<string, unknown>, key)
     
     if (!value) {
-      console.warn(`Translation key not found: ${key}`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`Translation key not found: ${key}`)
+      }
       return key
     }
     

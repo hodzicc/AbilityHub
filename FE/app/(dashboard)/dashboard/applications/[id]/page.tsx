@@ -40,7 +40,7 @@ import {
   type ApplicationResponse,
   type UserProfileResponse,
 } from '@/lib/api'
-import { ROLE_ID } from '@/lib/constants'
+import { ROLE_ID, FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import { getAppIcon } from '@/lib/app-icons'
 
 function responseToApp(r: ApplicationResponse): Application {
@@ -114,7 +114,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             name: `${p.firstName} ${p.lastName}`.trim(),
             firstName: p.firstName,
             lastName: p.lastName,
-            dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : new Date('2015-01-01'),
+            dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
             gender: (p.gender as 'male' | 'female') ?? 'male',
             parentId: user.id,
             assignedApps: childApps.map(a => a.applicationId),

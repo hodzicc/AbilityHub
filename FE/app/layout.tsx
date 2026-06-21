@@ -32,29 +32,12 @@ const atkinsonHyperlegible = Atkinson_Hyperlegible({
 
 export const metadata: Metadata = {
   title: {
-    default: 'AbilityHub - Centralizovani sistem za integraciju aplikacija',
+    default: 'AbilityHub',
     template: '%s | AbilityHub'
   },
   description: 'Centralizovana platforma za upravljanje i praćenje mobilnih aplikacija namijenjenih djeci sa Down sindromom',
   keywords: ['Down sindrom', 'edukacija', 'mobilne aplikacije', 'praćenje napretka', 'roditelji', 'djeca'],
   authors: [{ name: 'AbilityHub Team' }],
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
 }
 
 export const viewport: Viewport = {

@@ -12,9 +12,10 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppPreferencesList } from '@/components/preferences'
-import { AssignAppsDialog, TimeLimitDialog } from '@/components/children'
+import { AssignAppsDialog, TimeLimitDialog, ChildActivityFeed } from '@/components/children'
 import { calculateAge, formatDuration, cn } from '@/lib/utils'
 import { DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
+import { FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import type { Application, Child, UIPreferences } from '@/lib/types'
 import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import {
@@ -90,7 +91,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         id: profile.id,
         name: `${profile.firstName} ${profile.lastName}`.trim(),
         firstName: profile.firstName, lastName: profile.lastName,
-        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : new Date('2015-01-01'),
+        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
         gender: (profile.gender as 'male' | 'female') ?? 'male',
         parentId: user.id,
         assignedApps: childApps.map(a => a.applicationId),
@@ -119,7 +120,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
       )
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
-      else toast.error('Greška pri učitavanju profila')
+      else toast.error(t('children.loadProfileError'))
     } finally {
       setIsLoading(false)
     }
@@ -161,7 +162,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
           <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            Administratorski prikaz — uvid u profil i korištenje. Dodjelu aplikacija i postavke uređuje roditelj.
+            {t('children.adminViewBanner')}
           </p>
         </div>
       )}
@@ -207,7 +208,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-amber-700 dark:text-amber-400">
               <Lightbulb className="h-5 w-5" />
-              Preporuke za dalje aktivnosti
+              {t('children.recommendationsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -228,7 +229,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <TabsList>
           <TabsTrigger value="apps">{t('children.assignedApps')}</TabsTrigger>
           <TabsTrigger value="progress">{t('children.progress')}</TabsTrigger>
-          {!isAdmin && <TabsTrigger value="prefs">Preferencije</TabsTrigger>}
+          {!isAdmin && <TabsTrigger value="prefs">{t('children.preferencesTab')}</TabsTrigger>}
         </TabsList>
 
         {/* Apps tab */}
@@ -270,14 +271,14 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                       <span className="text-muted-foreground">{t('applications.dailyLimit')}</span>
                       <span className="flex items-center gap-1">
                         <span className="font-semibold">
-                          {dailyTimeLimit > 0 ? `${dailyTimeLimit} min` : 'Bez ograničenja'}
+                          {dailyTimeLimit > 0 ? `${dailyTimeLimit} min` : t('applications.noLimit')}
                         </span>
                         {!isAdmin && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            title="Uredi vremensko ograničenje"
+                            title={t('children.editTimeLimitTitle')}
                             onClick={() => setLimitApp(app)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -304,36 +305,43 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
 
         {/* Progress tab */}
         <TabsContent value="progress" className="space-y-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle>Ukupno korištenje po aplikaciji</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={usageChartData}>
-                    <defs>
-                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <YAxis axisLine={false} tickLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <Tooltip contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '10px',
-                    }} formatter={(v: number) => [`${v} min`, 'Korištenje']} />
-                    <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>{t('children.usageByAppTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={usageChartData}>
+                      <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis axisLine={false} tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '10px',
+                      }} formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]} />
+                      <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <ChildActivityFeed
+              activities={dashboard?.recentActivities ?? []}
+              apps={assignedApps.map(({ app }) => app)}
+            />
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {assignedApps.map(({ app, totalMinutes }) => (
@@ -363,9 +371,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           {/* Per-app preferences — global defaults are edited from the main "Preferences" menu */}
           {assignedApps.length > 0 ? (
             <div>
-              <h3 className="mb-3 text-base font-semibold">Preferencije po aplikaciji</h3>
+              <h3 className="mb-3 text-base font-semibold">{t('children.perAppPreferencesTitle')}</h3>
               <p className="mb-4 text-sm text-muted-foreground">
-                Pregled koje aplikacije koriste globalne postavke, a koje imaju prilagođene. Kliknite na aplikaciju za izmjenu.
+                {t('children.perAppPreferencesDesc')}
               </p>
               <AppPreferencesList childId={id} apps={assignedApps.map(({ app }) => app)} globalPrefs={globalPrefs} />
             </div>

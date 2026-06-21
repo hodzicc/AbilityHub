@@ -11,6 +11,7 @@ import {
 import { AppPreferencePanel } from './app-preference-panel'
 import { apiGetAppPreferences, apiGetPreferences } from '@/lib/api'
 import { DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
+import { useTranslation } from '@/components/providers'
 import type { Application, UIPreferences } from '@/lib/types'
 
 interface AppPreferenceDialogProps {
@@ -29,6 +30,7 @@ interface AppPreferenceDialogProps {
  * child's profile.
  */
 export function AppPreferenceDialog({ open, onOpenChange, childId, childName, app }: AppPreferenceDialogProps) {
+  const { t } = useTranslation()
   const [globalPrefs, setGlobalPrefs] = useState<UIPreferences>(DEFAULT_PREFERENCES)
   const [override, setOverride] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -52,10 +54,9 @@ export function AppPreferenceDialog({ open, onOpenChange, childId, childName, ap
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Postavke — {app.name}</DialogTitle>
+          <DialogTitle>{t('applications.settingsFor', { name: app.name })}</DialogTitle>
           <DialogDescription>
-            Prilagodite prikaz aplikacije &quot;{app.name}&quot; za {childName}, ili ostavite globalne
-            postavke djeteta.
+            {t('appPreferences.dialogDesc', { app: app.name, name: childName })}
           </DialogDescription>
         </DialogHeader>
         {loading ? (

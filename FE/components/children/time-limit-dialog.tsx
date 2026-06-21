@@ -11,8 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
 import { apiGetRestriction, apiSetRestriction } from '@/lib/api'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
@@ -26,13 +27,20 @@ interface TimeLimitDialogProps {
   onSaved?: () => Promise<void> | void
 }
 
+const MIN_LIMIT = 5
+const MAX_LIMIT = 120
+const DEFAULT_LIMIT = 30
+
 /**
  * Lets a parent set (or clear) the daily time limit for a single app
- * assigned to a child, and optionally block the app temporarily.
+ * assigned to a child, and optionally block the app temporarily. Uses the
+ * same switch + slider control as the assign-app dialog so the daily-limit
+ * UI is consistent everywhere it appears.
  */
 export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, onSaved }: TimeLimitDialogProps) {
   const { t } = useTranslation()
-  const [value, setValue] = useState('')
+  const [hasTimeLimit, setHasTimeLimit] = useState(false)
+  const [timeLimit, setTimeLimit] = useState(DEFAULT_LIMIT)
   const [isBlocked, setIsBlocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -44,7 +52,8 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
     apiGetRestriction(childId, appId)
       .then(r => {
         if (!active) return
-        setValue(r.dailyTimeLimitMinutes != null ? String(r.dailyTimeLimitMinutes) : '')
+        setHasTimeLimit(r.dailyTimeLimitMinutes != null)
+        setTimeLimit(r.dailyTimeLimitMinutes ?? DEFAULT_LIMIT)
         setIsBlocked(r.isBlocked)
       })
       .catch(() => {})
@@ -53,15 +62,12 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
   }, [open, childId, appId])
 
   const handleSave = async () => {
-    const trimmed = value.trim()
-    const minutes = trimmed === '' ? null : Number(trimmed)
-    if (minutes !== null && (Number.isNaN(minutes) || minutes < 0)) {
-      toast.error(t('timeLimit.invalidMinutes'))
-      return
-    }
     setSaving(true)
     try {
-      await apiSetRestriction(childId, appId, { dailyTimeLimitMinutes: minutes, isBlocked })
+      await apiSetRestriction(childId, appId, {
+        dailyTimeLimitMinutes: hasTimeLimit ? timeLimit : null,
+        isBlocked,
+      })
       toast.success(t('timeLimit.saved'))
       onOpenChange(false)
       await onSaved?.()
@@ -86,18 +92,41 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
           <div className="h-24 animate-pulse rounded-lg bg-muted" />
         ) : (
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="dailyLimit">{t('timeLimit.dailyLimitMinutes')}</Label>
-              <Input
-                id="dailyLimit"
-                type="number"
-                min={0}
-                value={value}
-                onChange={e => setValue(e.target.value)}
-                placeholder={t('timeLimit.noLimitPlaceholder')}
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>{t('applications.timeLimit')}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('applications.limitSwitchDesc')}
+                </p>
+              </div>
+              <Switch
+                checked={hasTimeLimit}
+                onCheckedChange={setHasTimeLimit}
                 disabled={saving}
               />
             </div>
+
+            {hasTimeLimit && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>{t('timeLimit.dailyLimitMinutes')}</Label>
+                  <span className="text-sm font-medium">{timeLimit} min</span>
+                </div>
+                <Slider
+                  value={[timeLimit]}
+                  onValueChange={([value]) => setTimeLimit(value)}
+                  min={MIN_LIMIT}
+                  max={MAX_LIMIT}
+                  step={5}
+                  disabled={saving}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{MIN_LIMIT} min</span>
+                  <span>{MAX_LIMIT} min</span>
+                </div>
+              </div>
+            )}
+
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"

@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
 import { useTranslation } from '@/components/providers'
 import { apiGetApps, apiAssignApp, apiSetRestriction, type ApplicationResponse } from '@/lib/api'
 import { getAppIcon } from '@/lib/app-icons'
@@ -40,6 +42,10 @@ interface AssignAppsDialogProps {
   onAssigned: () => Promise<void> | void
 }
 
+const MIN_LIMIT = 5
+const MAX_LIMIT = 120
+const DEFAULT_LIMIT = 30
+
 /**
  * Bulk "Dodaj aplikacije" entry point from a child's profile page.
  *
@@ -53,7 +59,8 @@ export function AssignAppsDialog({
   const { t } = useTranslation()
   const [apps, setApps] = useState<Application[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [timeLimits, setTimeLimits] = useState<Record<string, string>>({})
+  const [limitEnabled, setLimitEnabled] = useState<Set<string>>(new Set())
+  const [timeLimits, setTimeLimits] = useState<Record<string, number>>({})
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -63,6 +70,7 @@ export function AssignAppsDialog({
     let active = true
     setLoading(true)
     setSelected(new Set())
+    setLimitEnabled(new Set())
     setTimeLimits({})
     setSearch('')
     apiGetApps()
@@ -129,17 +137,12 @@ export function AssignAppsDialog({
       }
 
       // Apply any daily time limits set for the successfully assigned apps
-      const limitTargets = succeededIds.filter(appId => {
-        const raw = (timeLimits[appId] ?? '').trim()
-        if (raw === '') return false
-        const n = Number(raw)
-        return !Number.isNaN(n) && n >= 0
-      })
+      const limitTargets = succeededIds.filter(appId => limitEnabled.has(appId))
       if (limitTargets.length > 0) {
         await Promise.allSettled(
           limitTargets.map(appId =>
             apiSetRestriction(childId, appId, {
-              dailyTimeLimitMinutes: Number(timeLimits[appId]),
+              dailyTimeLimitMinutes: timeLimits[appId] ?? DEFAULT_LIMIT,
               isBlocked: false,
             })
           )
@@ -149,6 +152,7 @@ export function AssignAppsDialog({
       await onAssigned()
       if (failed === 0) onOpenChange(false)
       setSelected(new Set())
+      setLimitEnabled(new Set())
       setTimeLimits({})
     } finally {
       setSaving(false)
@@ -246,19 +250,37 @@ export function AssignAppsDialog({
                         </Button>
                       </div>
                       {isSelected && (
-                        <div className="mt-2 flex items-center gap-2 pl-[52px]">
-                          <Label htmlFor={`limit-${app.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                            {t('applications.dailyLimitMinShort')}
-                          </Label>
-                          <Input
-                            id={`limit-${app.id}`}
-                            type="number"
-                            min={0}
-                            value={timeLimits[app.id] ?? ''}
-                            onChange={e => setTimeLimits(prev => ({ ...prev, [app.id]: e.target.value }))}
-                            placeholder={t('applications.noLimit')}
-                            className="h-8 max-w-[140px]"
-                          />
+                        <div className="mt-2 space-y-2 pl-[52px]">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor={`limit-switch-${app.id}`} className="text-xs text-muted-foreground">
+                              {t('applications.limitSwitchDesc')}
+                            </Label>
+                            <Switch
+                              id={`limit-switch-${app.id}`}
+                              checked={limitEnabled.has(app.id)}
+                              onCheckedChange={checked => setLimitEnabled(prev => {
+                                const next = new Set(prev)
+                                if (checked) next.add(app.id)
+                                else next.delete(app.id)
+                                return next
+                              })}
+                            />
+                          </div>
+                          {limitEnabled.has(app.id) && (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">{t('applications.dailyLimitMinShort')}</span>
+                                <span className="text-xs font-medium">{timeLimits[app.id] ?? DEFAULT_LIMIT} min</span>
+                              </div>
+                              <Slider
+                                value={[timeLimits[app.id] ?? DEFAULT_LIMIT]}
+                                onValueChange={([value]) => setTimeLimits(prev => ({ ...prev, [app.id]: value }))}
+                                min={MIN_LIMIT}
+                                max={MAX_LIMIT}
+                                step={5}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

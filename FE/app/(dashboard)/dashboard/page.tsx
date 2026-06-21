@@ -29,6 +29,7 @@ import {
 } from 'recharts'
 import { useTheme } from 'next-themes'
 import { apiGetChildren, apiGetApps, apiGetAllUsers, apiGetDashboard, type DashboardResponse } from '@/lib/api'
+import { ROLE_ID } from '@/lib/constants'
 
 interface DashStats {
   childrenCount: number
@@ -38,55 +39,57 @@ interface DashStats {
   weeklyData: { name: string; usage: number }[]
 }
 
-const quickActions = [
-  {
-    href: '/dashboard/children',
-    icon: Users,
-    label: 'Djeca',
-    description: 'Upravljaj profilima',
-    gradient: 'from-indigo-500 to-indigo-600',
-    shadow: 'shadow-indigo-200 dark:shadow-indigo-900/40',
-  },
-  {
-    href: '/dashboard/applications',
-    icon: AppWindow,
-    label: 'Aplikacije',
-    description: 'Katalog i dodjela',
-    gradient: 'from-orange-400 to-orange-500',
-    shadow: 'shadow-orange-200 dark:shadow-orange-900/40',
-  },
-  {
-    href: '/dashboard/statistics',
-    icon: BarChart3,
-    label: 'Statistike',
-    description: 'Napredak i aktivnosti',
-    gradient: 'from-emerald-400 to-emerald-500',
-    shadow: 'shadow-emerald-200 dark:shadow-emerald-900/40',
-  },
-  {
-    href: '/dashboard/settings',
-    icon: Settings,
-    label: 'Postavke',
-    description: 'Profil i preferencije',
-    gradient: 'from-purple-400 to-purple-600',
-    shadow: 'shadow-purple-200 dark:shadow-purple-900/40',
-  },
-]
+function getQuickActions(t: (key: string) => string) {
+  return [
+    {
+      href: '/dashboard/children',
+      icon: Users,
+      label: t('dashboard.quickActionChildren'),
+      description: t('dashboard.quickActionChildrenDesc'),
+      gradient: 'from-indigo-500 to-indigo-600',
+      shadow: 'shadow-indigo-200 dark:shadow-indigo-900/40',
+    },
+    {
+      href: '/dashboard/applications',
+      icon: AppWindow,
+      label: t('dashboard.quickActionApplications'),
+      description: t('dashboard.quickActionApplicationsDesc'),
+      gradient: 'from-orange-400 to-orange-500',
+      shadow: 'shadow-orange-200 dark:shadow-orange-900/40',
+    },
+    {
+      href: '/dashboard/statistics',
+      icon: BarChart3,
+      label: t('dashboard.quickActionStatistics'),
+      description: t('dashboard.quickActionStatisticsDesc'),
+      gradient: 'from-emerald-400 to-emerald-500',
+      shadow: 'shadow-emerald-200 dark:shadow-emerald-900/40',
+    },
+    {
+      href: '/dashboard/settings',
+      icon: Settings,
+      label: t('dashboard.quickActionSettings'),
+      description: t('dashboard.quickActionSettingsDesc'),
+      gradient: 'from-purple-400 to-purple-600',
+      shadow: 'shadow-purple-200 dark:shadow-purple-900/40',
+    },
+  ]
+}
 
-function getPlatformCards(isAdmin: boolean) {
+function getPlatformCards(t: (key: string) => string, isAdmin: boolean) {
   return [
     {
       icon: ShieldCheck,
-      title: 'Jedinstvena prijava',
-      description: 'Roditelji, administratori i djeca koriste isti identitet kroz sve povezane aplikacije.',
+      title: t('dashboard.platformCard1Title'),
+      description: t('dashboard.platformCard1Desc'),
       color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
       href: null,
     },
     // Synced preferences are per-child, so this card makes no sense for admins (who have no children).
     ...(isAdmin ? [] : [{
       icon: Sparkles,
-      title: 'Sinhronizovane preferencije',
-      description: 'Boje, font i pristupačnost se šalju svim referentnim aplikacijama automatski.',
+      title: t('dashboard.platformCard2Title'),
+      description: t('dashboard.platformCard2Desc'),
       color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
       href: '/dashboard/preferences',
     }]),
@@ -95,8 +98,9 @@ function getPlatformCards(isAdmin: boolean) {
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { t } = useTranslation()
-  const platformCards = getPlatformCards(user?.role === 'admin')
+  const { t, locale } = useTranslation()
+  const quickActions = getQuickActions(t)
+  const platformCards = getPlatformCards(t, user?.role === 'admin')
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const gridColor = isDark ? '#334155' : '#e2e8f0'
@@ -118,7 +122,7 @@ export default function DashboardPage() {
       const [appsData, childProfiles] = await Promise.all([
         apiGetApps(isAdmin).catch(() => []),
         isAdmin
-          ? apiGetAllUsers(1, 500).then(r => r.items.filter(u => u.roleId === 3)).catch(() => [])
+          ? apiGetAllUsers(1, 500).then(r => r.items.filter(u => u.roleId === ROLE_ID.CHILD)).catch(() => [])
           : apiGetChildren(user.id).catch(() => []),
       ])
 
@@ -132,7 +136,7 @@ export default function DashboardPage() {
         const d = new Date()
         d.setDate(d.getDate() - (6 - i))
         return {
-          name: d.toLocaleDateString('bs-BA', { weekday: 'short' }),
+          name: d.toLocaleDateString(locale === 'bs' ? 'bs-BA' : 'en-US', { weekday: 'short' }),
           usage: i === 6 ? todayUsage : 0,
         }
       })
@@ -146,7 +150,7 @@ export default function DashboardPage() {
       })
     }
     load()
-  }, [user?.id])
+  }, [user?.id, locale])
 
   return (
     <div className="space-y-6">
@@ -154,7 +158,7 @@ export default function DashboardPage() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600 p-6 text-white shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30">
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-indigo-200">Dobrodošli nazad 👋</p>
+            <p className="text-sm font-medium text-indigo-200">{t('dashboard.welcomeBack')}</p>
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
               {t('dashboard.welcome', { name: user?.name?.split(' ')[0] || '' })}
             </h1>
@@ -220,7 +224,7 @@ export default function DashboardPage() {
                       boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
                       color: isDark ? '#f1f5f9' : '#0f172a',
                     }}
-                    formatter={(value: number) => [`${value} min`, 'Korištenje']}
+                    formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
                   />
                   <Bar dataKey="usage" fill="#6366f1" radius={[6, 6, 0, 0]} minPointSize={4} />
                 </BarChart>
@@ -259,7 +263,7 @@ export default function DashboardPage() {
       {/* Platform cards */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Platforma za integraciju</CardTitle>
+          <CardTitle className="text-lg font-semibold">{t('dashboard.platformTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           {platformCards.map((card) => (
@@ -272,7 +276,7 @@ export default function DashboardPage() {
               {card.href && (
                 <Button variant="link" className="mt-2 h-auto p-0 text-primary" asChild>
                   <Link href={card.href}>
-                    Otvori <ArrowRight className="ml-1 h-3 w-3" />
+                    {t('common.open')} <ArrowRight className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
               )}
