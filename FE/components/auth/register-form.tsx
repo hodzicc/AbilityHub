@@ -24,8 +24,8 @@ export function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password !== confirmPassword) { toast.error('Lozinke se ne podudaraju'); return }
-    if (password.length < 6) { toast.error('Lozinka mora imati najmanje 6 karaktera'); return }
+    if (password !== confirmPassword) { toast.error(t('auth.passwordMismatch')); return }
+    if (password.length < 6) { toast.error(t('auth.passwordTooShort')); return }
     setIsLoading(true)
     try {
       const success = await register(email, password, name)
@@ -64,7 +64,7 @@ export function RegisterForm() {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Ime i prezime"
+                  placeholder={t('auth.fullName')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required

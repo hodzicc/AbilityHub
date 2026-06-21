@@ -96,13 +96,51 @@ export interface ActivityLog {
   timestamp: Date
 }
 
+// Extended per-activity accessibility metrics. Apps may report any subset of
+// these; fields are optional because most current demo apps won't send them
+// until they adopt the contract in BE/API_CONTRACTS_NEEDED.md.
+export interface ActivityMetrics {
+  startedViaAction?: boolean      // activity begun via explicit "start" action
+  completedViaAction?: boolean    // activity ended via explicit "done" action
+  stepsCompleted?: number
+  stepsTotal?: number
+  durationSeconds?: number
+  hintsShown?: number
+  errorsCount?: number
+}
+
+// Weekly Parent Evaluation (check-in) Types
+export type Mood = 'great' | 'good' | 'neutral' | 'difficult' | 'hard'
+export type HelpLevel = 'none' | 'minimal' | 'moderate' | 'extensive'
+export type PerformanceQuality = 'excellent' | 'good' | 'partial' | 'poor'
+export type DayContext = 'normal' | 'poor-sleep' | 'illness' | 'routine-change' | 'stress' | 'other'
+
+export interface WeeklyCheckIn {
+  id: string
+  childId: string
+  weekStartDate: string // ISO date, Monday of the evaluated week
+  moodBefore?: Mood
+  moodAfter?: Mood
+  helpLevel?: HelpLevel
+  performanceQuality?: PerformanceQuality
+  safetyIncident: boolean
+  safetyIncidentNotes?: string
+  dayContext?: DayContext
+  dayContextNotes?: string
+  usesSkillOutsideApp?: boolean
+  generalNotes?: string
+  createdAt: string
+}
+
 // Preferences Types
 export type FontSize = 'small' | 'medium' | 'large' | 'extra-large'
 export type ColorScheme = 'default' | 'high-contrast' | 'pastel' | 'warm'
+export type FontFamily = 'default' | 'rounded' | 'legible'
 
 export interface UIPreferences {
   fontSize: FontSize
   colorScheme: ColorScheme
+  fontFamily: FontFamily
   reducedMotion: boolean
   highContrast: boolean
   soundEnabled: boolean

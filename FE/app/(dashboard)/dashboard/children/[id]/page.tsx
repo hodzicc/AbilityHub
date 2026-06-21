@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PreferenceFields, PreferencePreview, AppPreferencesList } from '@/components/preferences'
 import { AssignAppsDialog, TimeLimitDialog } from '@/components/children'
+import { QrPairingCard } from '@/components/children/qr-pairing-card'
 import { calculateAge, formatDuration, cn } from '@/lib/utils'
 import { DEFAULT_PREFERENCES, prefsToRecord, recordToPrefs } from '@/lib/preferences'
 import type { Application, Child, UIPreferences } from '@/lib/types'
@@ -121,7 +122,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
       )
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
-      else toast.error('Greška pri učitavanju profila')
+      else toast.error(t('children.loadProfileError'))
     } finally {
       setIsLoading(false)
     }
@@ -131,9 +132,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
     setSavingPrefs(true)
     try {
       await apiSetPreferences(id, prefsToRecord(globalPrefs))
-      toast.success('Globalne preferencije sačuvane')
+      toast.success(t('children.globalPreferencesSaved'))
     } catch {
-      toast.error('Greška pri čuvanju preferencija')
+      toast.error(t('children.savePreferencesError'))
     } finally {
       setSavingPrefs(false)
     }
@@ -175,7 +176,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
           <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            Administratorski prikaz — uvid u profil i korištenje. Dodjelu aplikacija i postavke uređuje roditelj.
+            {t('children.adminViewBanner')}
           </p>
         </div>
       )}
@@ -221,7 +222,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-amber-700 dark:text-amber-400">
               <Lightbulb className="h-5 w-5" />
-              Preporuke za dalje aktivnosti
+              {t('children.recommendationsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -242,7 +243,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <TabsList>
           <TabsTrigger value="apps">{t('children.assignedApps')}</TabsTrigger>
           <TabsTrigger value="progress">{t('children.progress')}</TabsTrigger>
-          {!isAdmin && <TabsTrigger value="prefs">Preferencije</TabsTrigger>}
+          {!isAdmin && <TabsTrigger value="prefs">{t('children.preferencesTab')}</TabsTrigger>}
+          {!isAdmin && <TabsTrigger value="login">{t('qrPairing.tabLabel')}</TabsTrigger>}
         </TabsList>
 
         {/* Apps tab */}
@@ -284,14 +286,14 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                       <span className="text-muted-foreground">{t('applications.dailyLimit')}</span>
                       <span className="flex items-center gap-1">
                         <span className="font-semibold">
-                          {dailyTimeLimit > 0 ? `${dailyTimeLimit} min` : 'Bez ograničenja'}
+                          {dailyTimeLimit > 0 ? `${dailyTimeLimit} min` : t('applications.noLimit')}
                         </span>
                         {!isAdmin && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                            title="Uredi vremensko ograničenje"
+                            title={t('children.editTimeLimitTitle')}
                             onClick={() => setLimitApp(app)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -320,7 +322,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         <TabsContent value="progress" className="space-y-6">
           <Card className="border-0 shadow-sm">
             <CardHeader>
-              <CardTitle>Ukupno korištenje po aplikaciji</CardTitle>
+              <CardTitle>{t('children.usageByAppTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[280px]">
@@ -341,7 +343,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                       backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '10px',
-                    }} formatter={(v: number) => [`${v} min`, 'Korištenje']} />
+                    }} formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]} />
                     <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -379,10 +381,10 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-indigo-500" />
-                Globalne preferencije
+                {t('children.globalPreferences')}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Podrazumijevane postavke za sve aplikacije. Svaka aplikacija može po potrebi imati vlastite izmjene.
+                {t('children.globalPreferencesDesc')}
               </p>
             </CardHeader>
             <CardContent>
@@ -391,7 +393,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                   <PreferenceFields value={globalPrefs} onChange={setGlobalPrefs} idPrefix="global" />
                   <Button onClick={handleSaveGlobalPrefs} disabled={savingPrefs}>
                     {savingPrefs && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sačuvaj globalne preferencije
+                    {t('children.saveGlobalPreferences')}
                   </Button>
                 </div>
                 <PreferencePreview preferences={globalPrefs} className="lg:w-64" />
@@ -402,13 +404,22 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           {/* Per-app overrides */}
           {assignedApps.length > 0 && (
             <div>
-              <h3 className="mb-3 text-base font-semibold">Preferencije po aplikaciji</h3>
+              <h3 className="mb-3 text-base font-semibold">{t('children.perAppPreferencesTitle')}</h3>
               <p className="mb-4 text-sm text-muted-foreground">
-                Pregled koje aplikacije koriste globalne postavke, a koje imaju prilagođene. Kliknite na aplikaciju za izmjenu.
+                {t('children.perAppPreferencesDesc')}
               </p>
               <AppPreferencesList childId={id} apps={assignedApps.map(({ app }) => app)} globalPrefs={globalPrefs} />
             </div>
           )}
+        </TabsContent>
+        )}
+
+        {/* Login / QR pairing tab (parent only) */}
+        {!isAdmin && (
+        <TabsContent value="login">
+          <div className="max-w-md">
+            <QrPairingCard childId={id} childName={child.name} />
+          </div>
         </TabsContent>
         )}
       </Tabs>

@@ -67,7 +67,7 @@ export function AssignAppDialog({
         <DialogHeader>
           <DialogTitle>{t('children.assignApps')}</DialogTitle>
           <DialogDescription>
-            Dodijelite &quot;{app.name}&quot; djetetu
+            {t('applications.assignToChild', { name: app.name })}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -80,7 +80,7 @@ export function AssignAppDialog({
                 disabled={isLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Odaberite dijete" />
+                  <SelectValue placeholder={t('applications.selectChildPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableChildren.map(child => (
@@ -92,7 +92,7 @@ export function AssignAppDialog({
               </Select>
               {availableChildren.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Sve djece već imaju ovu aplikaciju
+                  {t('applications.allChildrenHaveApp')}
                 </p>
               )}
             </div>
@@ -101,7 +101,7 @@ export function AssignAppDialog({
               <div className="space-y-0.5">
                 <Label>{t('applications.timeLimit')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Ograničite dnevno vrijeme korištenja
+                  {t('applications.limitSwitchDesc')}
                 </p>
               </div>
               <Switch

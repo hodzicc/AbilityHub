@@ -5,7 +5,8 @@ import { AppWindow, Settings2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { apiGetAppPreferences } from '@/lib/api'
-import { labelFor, resolvePrefs } from '@/lib/preferences'
+import { resolvePrefs } from '@/lib/preferences'
+import { useTranslation } from '@/components/providers'
 import { AppPreferencePanel } from './app-preference-panel'
 import type { Application, UIPreferences } from '@/lib/types'
 
@@ -15,25 +16,41 @@ interface AppPreferencesListProps {
   globalPrefs: UIPreferences
 }
 
-const SUMMARY_COLUMNS: { key: keyof UIPreferences; label: string }[] = [
-  { key: 'fontSize', label: 'Font' },
-  { key: 'colorScheme', label: 'Boja' },
-  { key: 'highContrast', label: 'Kontrast' },
-  { key: 'reducedMotion', label: 'Animacija' },
-  { key: 'soundEnabled', label: 'Zvuk' },
-]
-
 /**
- * Per-application preference overview & editor for a child.
- *
- * Replaces the old design (one full duplicated preferences form per app, in a
- * grid). Instead shows an at-a-glance summary table — which apps inherit the
- * global preferences and which have customizations — followed by a compact
- * accordion where each app can be expanded into an `AppPreferencePanel`.
+ * Per-application preference overview & editor for a child. Shows a summary
+ * table of which apps inherit global preferences vs. have customizations,
+ * followed by an accordion where each app expands into an `AppPreferencePanel`.
  */
 export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreferencesListProps) {
+  const { t } = useTranslation()
+
+  const SUMMARY_COLUMNS: { key: keyof UIPreferences; label: string }[] = [
+    { key: 'fontSize', label: t('appPreferences.columnFont') },
+    { key: 'colorScheme', label: t('appPreferences.columnColor') },
+    { key: 'highContrast', label: t('appPreferences.columnContrast') },
+    { key: 'reducedMotion', label: t('appPreferences.columnAnimation') },
+    { key: 'soundEnabled', label: t('appPreferences.columnSound') },
+  ]
+
   const [overrides, setOverrides] = useState<Record<string, Record<string, string>>>({})
   const [loading, setLoading] = useState(true)
+
+  function translatedLabelFor(key: keyof UIPreferences, prefs: UIPreferences): string {
+    switch (key) {
+      case 'fontSize':
+        return t(`settings.fontSizes.${prefs.fontSize === 'extra-large' ? 'extraLarge' : prefs.fontSize}`)
+      case 'colorScheme':
+        return t(`settings.colorSchemes.${prefs.colorScheme === 'high-contrast' ? 'highContrast' : prefs.colorScheme}`)
+      case 'reducedMotion':
+        return prefs.reducedMotion ? t('common.enabled') : t('common.disabled')
+      case 'highContrast':
+        return prefs.highContrast ? t('common.enabled') : t('common.disabled')
+      case 'soundEnabled':
+        return prefs.soundEnabled ? t('common.enabled') : t('common.disabled')
+      default:
+        return ''
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -64,11 +81,11 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 text-left text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Aplikacija</th>
+              <th className="px-3 py-2 font-medium">{t('appPreferences.columnApp')}</th>
               {SUMMARY_COLUMNS.map(col => (
                 <th key={col.key} className="px-3 py-2 font-medium">{col.label}</th>
               ))}
-              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">{t('appPreferences.columnStatus')}</th>
             </tr>
           </thead>
           <tbody>
@@ -91,16 +108,16 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
                   </td>
                   {SUMMARY_COLUMNS.map(col => (
                     <td key={col.key} className="px-3 py-2 text-muted-foreground">
-                      {labelFor(col.key, resolved)}
+                      {translatedLabelFor(col.key, resolved)}
                     </td>
                   ))}
                   <td className="px-3 py-2">
                     {hasOverride ? (
                       <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-0">
-                        Prilagođeno
+                        {t('appPreferences.customized')}
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="border-0">Globalno</Badge>
+                      <Badge variant="secondary" className="border-0">{t('appPreferences.global')}</Badge>
                     )}
                   </td>
                 </tr>
@@ -128,12 +145,12 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
                   <span>{app.name}</span>
                   {hasOverride ? (
                     <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-0">
-                      Prilagođeno
+                      {t('appPreferences.customized')}
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="border-0">
                       <Settings2 className="mr-1 h-3 w-3" />
-                      Koristi globalne
+                      {t('appPreferences.usesGlobal')}
                     </Badge>
                   )}
                 </div>
