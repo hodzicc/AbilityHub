@@ -3,8 +3,16 @@
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { COLOR_SCHEMES, FONT_SIZES } from '@/lib/preferences'
+import { COLOR_SCHEMES, FONT_FAMILIES, FONT_SIZES } from '@/lib/preferences'
 import { useTranslation } from '@/components/providers'
 import type { UIPreferences } from '@/lib/types'
 
@@ -16,9 +24,9 @@ interface PreferenceFieldsProps {
 }
 
 /**
- * Font size / color scheme / accessibility toggle controls — shared between the
- * global preferences form and the per-app override panel so both look and behave
- * identically.
+ * Font size / font family / color scheme / accessibility toggle controls —
+ * shared between the global preferences form and the per-app override panel
+ * so both look and behave identically.
  */
 export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFieldsProps) {
   const { t } = useTranslation()
@@ -57,6 +65,32 @@ export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFields
         </RadioGroup>
       </div>
 
+      {/* Font family */}
+      <div>
+        <p className="mb-2 text-sm font-medium">{t('preferencesPanel.fontFamilyLabel')}</p>
+        <Select
+          value={value.fontFamily}
+          onValueChange={v => onChange({ ...value, fontFamily: v as UIPreferences['fontFamily'] })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FONT_FAMILIES.map(f => (
+              <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.stack }}>
+                {t(`settings.fontFamilies.${f.value}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 p-2.5">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            {t(`settings.fontFamilyReasons.${value.fontFamily}`)}
+          </p>
+        </div>
+      </div>
+
       {/* Color scheme */}
       <div>
         <p className="mb-2 text-sm font-medium">{t('preferencesPanel.colorSchemeLabel')}</p>
@@ -85,6 +119,12 @@ export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFields
             </div>
           ))}
         </RadioGroup>
+        <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 p-2.5">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            {t(`settings.colorSchemeReasons.${value.colorScheme === 'high-contrast' ? 'highContrast' : value.colorScheme}`)}
+          </p>
+        </div>
       </div>
 
       {/* Toggles */}

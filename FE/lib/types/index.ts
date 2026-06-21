@@ -151,7 +151,6 @@ export interface NotificationSettings {
   weeklyReport: boolean
   achievementAlerts: boolean
   timeLimitAlerts: boolean
-  emailNotifications: boolean
 }
 
 // Auth Context Types

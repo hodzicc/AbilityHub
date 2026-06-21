@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { Bell, Mail, Trophy, Clock, BarChart3 } from 'lucide-react'
+import { Bell, Trophy, Clock, BarChart3 } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { t } = useTranslation()
@@ -107,33 +107,6 @@ export default function NotificationsPage() {
             <Switch
               checked={notifications.timeLimitAlerts}
               onCheckedChange={(checked) => updateNotifications({ timeLimitAlerts: checked })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Email */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            {t('settings.emailSectionTitle')}
-          </CardTitle>
-          <CardDescription>
-            {t('settings.emailSectionDesc')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>{t('settings.emailNotifications')}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.emailNotificationsDesc')}
-              </p>
-            </div>
-            <Switch
-              checked={notifications.emailNotifications}
-              onCheckedChange={(checked) => updateNotifications({ emailNotifications: checked })}
             />
           </div>
         </CardContent>

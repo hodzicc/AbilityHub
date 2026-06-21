@@ -11,13 +11,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PreferenceFields, PreferencePreview, AppPreferencesList } from '@/components/preferences'
-import { AssignAppsDialog, TimeLimitDialog } from '@/components/children'
-import { QrPairingCard } from '@/components/children/qr-pairing-card'
+import { AppPreferencesList } from '@/components/preferences'
+import { AssignAppsDialog, TimeLimitDialog, ChildActivityFeed } from '@/components/children'
 import { calculateAge, formatDuration, cn } from '@/lib/utils'
-import { DEFAULT_PREFERENCES, prefsToRecord, recordToPrefs } from '@/lib/preferences'
+import { DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
+import { FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import type { Application, Child, UIPreferences } from '@/lib/types'
-import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Loader2, Plus, ShieldCheck, Pencil } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -34,7 +34,6 @@ import {
   apiGetApp,
   apiGetRestriction,
   apiGetPreferences,
-  apiSetPreferences,
   type DashboardResponse,
   type ApplicationResponse,
 } from '@/lib/api'
@@ -67,7 +66,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
   }>>([])
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
   const [globalPrefs, setGlobalPrefs] = useState<UIPreferences>(DEFAULT_PREFERENCES)
-  const [savingPrefs, setSavingPrefs] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [notFoundFlag, setNotFoundFlag] = useState(false)
   const [isAssignAppsOpen, setIsAssignAppsOpen] = useState(false)
@@ -93,7 +91,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         id: profile.id,
         name: `${profile.firstName} ${profile.lastName}`.trim(),
         firstName: profile.firstName, lastName: profile.lastName,
-        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : new Date('2015-01-01'),
+        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
         gender: (profile.gender as 'male' | 'female') ?? 'male',
         parentId: user.id,
         assignedApps: childApps.map(a => a.applicationId),
@@ -125,18 +123,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
       else toast.error(t('children.loadProfileError'))
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleSaveGlobalPrefs = async () => {
-    setSavingPrefs(true)
-    try {
-      await apiSetPreferences(id, prefsToRecord(globalPrefs))
-      toast.success(t('children.globalPreferencesSaved'))
-    } catch {
-      toast.error(t('children.savePreferencesError'))
-    } finally {
-      setSavingPrefs(false)
     }
   }
 
@@ -244,7 +230,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           <TabsTrigger value="apps">{t('children.assignedApps')}</TabsTrigger>
           <TabsTrigger value="progress">{t('children.progress')}</TabsTrigger>
           {!isAdmin && <TabsTrigger value="prefs">{t('children.preferencesTab')}</TabsTrigger>}
-          {!isAdmin && <TabsTrigger value="login">{t('qrPairing.tabLabel')}</TabsTrigger>}
         </TabsList>
 
         {/* Apps tab */}
@@ -320,36 +305,43 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
 
         {/* Progress tab */}
         <TabsContent value="progress" className="space-y-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle>{t('children.usageByAppTitle')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={usageChartData}>
-                    <defs>
-                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <YAxis axisLine={false} tickLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                    <Tooltip contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '10px',
-                    }} formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]} />
-                    <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>{t('children.usageByAppTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={usageChartData}>
+                      <defs>
+                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <YAxis axisLine={false} tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                      <Tooltip contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '10px',
+                      }} formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]} />
+                      <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <ChildActivityFeed
+              activities={dashboard?.recentActivities ?? []}
+              apps={assignedApps.map(({ app }) => app)}
+            />
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {assignedApps.map(({ app, totalMinutes }) => (
@@ -376,33 +368,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         {/* Preferences tab (parent only) */}
         {!isAdmin && (
         <TabsContent value="prefs" className="space-y-6">
-          {/* Global preferences */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-500" />
-                {t('children.globalPreferences')}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t('children.globalPreferencesDesc')}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
-                <div className="space-y-5">
-                  <PreferenceFields value={globalPrefs} onChange={setGlobalPrefs} idPrefix="global" />
-                  <Button onClick={handleSaveGlobalPrefs} disabled={savingPrefs}>
-                    {savingPrefs && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {t('children.saveGlobalPreferences')}
-                  </Button>
-                </div>
-                <PreferencePreview preferences={globalPrefs} className="lg:w-64" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Per-app overrides */}
-          {assignedApps.length > 0 && (
+          {/* Per-app preferences — global defaults are edited from the main "Preferences" menu */}
+          {assignedApps.length > 0 ? (
             <div>
               <h3 className="mb-3 text-base font-semibold">{t('children.perAppPreferencesTitle')}</h3>
               <p className="mb-4 text-sm text-muted-foreground">
@@ -410,16 +377,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
               </p>
               <AppPreferencesList childId={id} apps={assignedApps.map(({ app }) => app)} globalPrefs={globalPrefs} />
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('children.noAppsAssigned')}</p>
           )}
-        </TabsContent>
-        )}
-
-        {/* Login / QR pairing tab (parent only) */}
-        {!isAdmin && (
-        <TabsContent value="login">
-          <div className="max-w-md">
-            <QrPairingCard childId={id} childName={child.name} />
-          </div>
         </TabsContent>
         )}
       </Tabs>

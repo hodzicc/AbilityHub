@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AppWindow, Settings2 } from 'lucide-react'
+import { AppWindow, Settings2, Smartphone, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { apiGetAppPreferences } from '@/lib/api'
@@ -26,6 +26,7 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
 
   const SUMMARY_COLUMNS: { key: keyof UIPreferences; label: string }[] = [
     { key: 'fontSize', label: t('appPreferences.columnFont') },
+    { key: 'fontFamily', label: t('appPreferences.columnFontFamily') },
     { key: 'colorScheme', label: t('appPreferences.columnColor') },
     { key: 'highContrast', label: t('appPreferences.columnContrast') },
     { key: 'reducedMotion', label: t('appPreferences.columnAnimation') },
@@ -39,6 +40,8 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
     switch (key) {
       case 'fontSize':
         return t(`settings.fontSizes.${prefs.fontSize === 'extra-large' ? 'extraLarge' : prefs.fontSize}`)
+      case 'fontFamily':
+        return t(`settings.fontFamilies.${prefs.fontFamily}`)
       case 'colorScheme':
         return t(`settings.colorSchemes.${prefs.colorScheme === 'high-contrast' ? 'highContrast' : prefs.colorScheme}`)
       case 'reducedMotion':
@@ -143,6 +146,10 @@ export function AppPreferencesList({ childId, apps, globalPrefs }: AppPreference
                     <AppWindow className="h-4 w-4" />
                   </div>
                   <span>{app.name}</span>
+                  <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
+                    {app.platform === 'web' ? <Globe className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                    {t(`appPreferences.platform.${app.platform ?? 'mobile'}`)}
+                  </Badge>
                   {hasOverride ? (
                     <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-0">
                       {t('appPreferences.customized')}

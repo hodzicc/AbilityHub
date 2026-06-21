@@ -77,7 +77,7 @@ function getQuickActions(t: (key: string) => string) {
   ]
 }
 
-function getPlatformCards(t: (key: string) => string) {
+function getPlatformCards(t: (key: string) => string, isAdmin: boolean) {
   return [
     {
       icon: ShieldCheck,
@@ -86,13 +86,14 @@ function getPlatformCards(t: (key: string) => string) {
       color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
       href: null,
     },
-    {
+    // Synced preferences are per-child, so this card makes no sense for admins (who have no children).
+    ...(isAdmin ? [] : [{
       icon: Sparkles,
       title: t('dashboard.platformCard2Title'),
       description: t('dashboard.platformCard2Desc'),
       color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-      href: '/dashboard/settings/preferences',
-    },
+      href: '/dashboard/preferences',
+    }]),
   ]
 }
 
@@ -100,7 +101,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { t, locale } = useTranslation()
   const quickActions = getQuickActions(t)
-  const platformCards = getPlatformCards(t)
+  const platformCards = getPlatformCards(t, user?.role === 'admin')
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const gridColor = isDark ? '#334155' : '#e2e8f0'
@@ -163,7 +164,7 @@ export default function DashboardPage() {
         childrenCount: childProfiles.length,
         activeAppsCount: appsData.filter(a => a.isActive).length,
         todayUsageMinutes: todayUsage,
-        avgProgress,
+        avgProgress: 0,
         weeklyData: last7,
       })
     }

@@ -4,6 +4,7 @@ using AbilityHub.ServiceClients;
 using AbilityHub.Settings.Controllers.DTOs;
 using AbilityHub.Settings.Hubs;
 using AbilityHub.Settings.Services;
+using AbilityHub.Settings.Validation;
 using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Settings.Controllers;
@@ -37,6 +38,8 @@ public class PreferencesController : ControllerBase
     public async Task<IActionResult> SetGlobal(Guid childId, [FromBody] SetPreferencesRequest request)
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
+        var errors = UIPreferenceCatalog.Validate(request.Preferences);
+        if (errors.Count > 0) return BadRequest(new { errors });
         await _settings.SetPreferencesAsync(childId, null, request.Preferences);
         await _notifier.NotifyChildAsync(childId, "preferences", null);
         return NoContent();
@@ -55,6 +58,8 @@ public class PreferencesController : ControllerBase
     public async Task<IActionResult> SetForApp(Guid childId, Guid appId, [FromBody] SetPreferencesRequest request)
     {
         if (!await CanManageChildAsync(childId)) return Forbid();
+        var errors = UIPreferenceCatalog.Validate(request.Preferences);
+        if (errors.Count > 0) return BadRequest(new { errors });
         await _settings.SetPreferencesAsync(childId, appId, request.Preferences);
         await _notifier.NotifyChildAsync(childId, "preferences", appId);
         return NoContent();
