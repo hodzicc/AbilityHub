@@ -14,21 +14,29 @@ export const FONT_SIZES: { value: FontSize; label: string; size: string }[] = [
 // Font choices: a default rounded sans for friendliness, and a high-legibility
 // option (wider letterforms, simple shapes) for readers with cognitive
 // accessibility needs. See ACCESSIBILITY_RESEARCH.md for sourcing.
+// The 'rounded' and 'legible' stacks reference CSS variables set by next/font
+// in app/layout.tsx (--font-nunito, --font-atkinson) — without that, the named
+// fonts aren't actually loaded in the browser and selection has no visible effect.
 export const FONT_FAMILIES: { value: FontFamily; label: string; stack: string }[] = [
   { value: 'default', label: 'Standardni (Inter)',        stack: 'var(--font-sans, ui-sans-serif), system-ui, sans-serif' },
-  { value: 'rounded',  label: 'Zaokruženi (Nunito)',       stack: '"Nunito", var(--font-sans, ui-sans-serif), sans-serif' },
-  { value: 'legible',  label: 'Visoka čitljivost (Atkinson)', stack: '"Atkinson Hyperlegible", var(--font-sans, ui-sans-serif), sans-serif' },
+  { value: 'rounded',  label: 'Zaokruženi (Nunito)',       stack: 'var(--font-nunito), var(--font-sans, ui-sans-serif), sans-serif' },
+  { value: 'legible',  label: 'Visoka čitljivost (Atkinson)', stack: 'var(--font-atkinson), var(--font-sans, ui-sans-serif), sans-serif' },
 ]
 
 // Color scheme palette — see ACCESSIBILITY_RESEARCH.md for sourcing.
 // "high-contrast" uses a black-on-yellow pairing rather than a plain
 // black/white inversion; "default", "pastel", and "warm" are general
 // preference alternatives.
-export const COLOR_SCHEMES: { value: ColorScheme; label: string; colors: string[] }[] = [
-  { value: 'default',       label: 'Zadana',         colors: ['#4F46E5', '#10B981', '#F59E0B'] },
-  { value: 'high-contrast', label: 'Visoki kontrast (žuto-crna)', colors: ['#000000', '#FFFF00', '#1D4ED8'] },
-  { value: 'pastel',        label: 'Pastelne',        colors: ['#A5B4FC', '#86EFAC', '#FDE68A'] },
-  { value: 'warm',          label: 'Tople',           colors: ['#F97316', '#FBBF24', '#EF4444'] },
+// `colors` are the light/pastel swatch tones shown in the picker UI itself.
+// `accentText` is a separate, deliberately darker shade used wherever a
+// scheme's accent color is rendered as large/standalone text (e.g. the
+// mock-preview's big letter) — `colors[0]` alone is too light to read
+// against a light background for the 'pastel' scheme.
+export const COLOR_SCHEMES: { value: ColorScheme; label: string; colors: string[]; accentText: string }[] = [
+  { value: 'default',       label: 'Zadana',         colors: ['#4F46E5', '#10B981', '#F59E0B'], accentText: '#4F46E5' },
+  { value: 'high-contrast', label: 'Visoki kontrast (žuto-crna)', colors: ['#000000', '#FFFF00', '#1D4ED8'], accentText: '#000000' },
+  { value: 'pastel',        label: 'Pastelne',        colors: ['#A5B4FC', '#86EFAC', '#FDE68A'], accentText: '#4338CA' },
+  { value: 'warm',          label: 'Tople',           colors: ['#F97316', '#FBBF24', '#EF4444'], accentText: '#C2410C' },
 ]
 
 export const DEFAULT_PREFERENCES: UIPreferences = {

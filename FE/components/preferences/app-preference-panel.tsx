@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Smartphone, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTranslation } from '@/components/providers'
 import { PreferenceFields } from './preference-fields'
 import { PreferencePreview } from './preference-preview'
@@ -43,6 +44,12 @@ export function AppPreferencePanel({
   const [useGlobal, setUseGlobal] = useState(!hasOverride)
   const [prefs, setPrefs] = useState<UIPreferences>(() => resolvePrefs(globalPrefs, override))
   const [saving, setSaving] = useState(false)
+  // The app's platform decides which device chrome the preview shows. 'hybrid'
+  // apps run on both, so they get a tab switcher; mobile/web apps just show
+  // the one device they actually run on.
+  const [previewPlatform, setPreviewPlatform] = useState<'mobile' | 'web'>(
+    app.platform === 'web' ? 'web' : 'mobile'
+  )
 
   const handleToggleGlobal = (checked: boolean) => {
     setUseGlobal(checked)
@@ -78,6 +85,10 @@ export function AppPreferencePanel({
 
   const previewPrefs = useGlobal ? globalPrefs : prefs
 
+  const preview = (platform: 'mobile' | 'web') => (
+    <PreferencePreview preferences={previewPrefs} compact={compactPreview} platform={platform} />
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border p-3">
@@ -98,7 +109,24 @@ export function AppPreferencePanel({
           <p className="mb-2 text-sm font-medium text-muted-foreground">
             {useGlobal ? t('appPreferences.previewGlobal') : t('appPreferences.previewCustom')}
           </p>
-          <PreferencePreview preferences={previewPrefs} compact={compactPreview} />
+          {app.platform === 'hybrid' ? (
+            <Tabs value={previewPlatform} onValueChange={(v) => setPreviewPlatform(v as 'mobile' | 'web')}>
+              <TabsList className="mb-3 grid w-full grid-cols-2">
+                <TabsTrigger value="mobile">
+                  <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                  {t('settings.previewMobile')}
+                </TabsTrigger>
+                <TabsTrigger value="web">
+                  <Globe className="mr-1.5 h-3.5 w-3.5" />
+                  {t('settings.previewWeb')}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="mobile">{preview('mobile')}</TabsContent>
+              <TabsContent value="web">{preview('web')}</TabsContent>
+            </Tabs>
+          ) : (
+            preview(app.platform === 'web' ? 'web' : 'mobile')
+          )}
         </div>
       </div>
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { Bell, Mail, Trophy, Clock, BarChart3 } from 'lucide-react'
+import { Bell, Trophy, Clock, BarChart3 } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { t } = useTranslation()
@@ -19,9 +19,9 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageHeader 
         title={t('settings.notifications')}
-        description={t('settings.notificationsDesc')}
+        description="Upravljajte obavještenjima i izvještajima"
       />
 
       {/* Reports */}
@@ -29,10 +29,10 @@ export default function NotificationsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            {t('settings.reportsTitle')}
+            Izvještaji
           </CardTitle>
           <CardDescription>
-            {t('settings.reportsDesc')}
+            Primajte redovne izvještaje o napretku i korištenju
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -42,10 +42,10 @@ export default function NotificationsPage() {
                 {t('settings.dailyReport')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('settings.dailyReportDesc')}
+                Primite dnevni pregled aktivnosti svakog dana u 20:00
               </p>
             </div>
-            <Switch
+            <Switch 
               checked={notifications.dailyReport}
               onCheckedChange={(checked) => updateNotifications({ dailyReport: checked })}
             />
@@ -56,10 +56,10 @@ export default function NotificationsPage() {
                 {t('settings.weeklyReport')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('settings.weeklyReportDesc')}
+                Primite sedmični izvještaj svake nedjelje
               </p>
             </div>
-            <Switch
+            <Switch 
               checked={notifications.weeklyReport}
               onCheckedChange={(checked) => updateNotifications({ weeklyReport: checked })}
             />
@@ -72,10 +72,10 @@ export default function NotificationsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            {t('settings.alertsTitle')}
+            Upozorenja
           </CardTitle>
           <CardDescription>
-            {t('settings.alertsDesc')}
+            Real-time obavještenja o aktivnostima
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -86,10 +86,10 @@ export default function NotificationsPage() {
                 {t('settings.achievementAlerts')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('settings.achievementAlertsDesc')}
+                Obavještenja kada dijete postigne novo dostignuće
               </p>
             </div>
-            <Switch
+            <Switch 
               checked={notifications.achievementAlerts}
               onCheckedChange={(checked) => updateNotifications({ achievementAlerts: checked })}
             />
@@ -101,39 +101,12 @@ export default function NotificationsPage() {
                 {t('settings.timeLimitAlerts')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                {t('settings.timeLimitAlertsDesc')}
+                Obavještenja kada dijete dostigne dnevno vremensko ograničenje
               </p>
             </div>
-            <Switch
+            <Switch 
               checked={notifications.timeLimitAlerts}
               onCheckedChange={(checked) => updateNotifications({ timeLimitAlerts: checked })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Email */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            {t('settings.emailSectionTitle')}
-          </CardTitle>
-          <CardDescription>
-            {t('settings.emailSectionDesc')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>{t('settings.emailNotifications')}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.emailNotificationsDesc')}
-              </p>
-            </div>
-            <Switch
-              checked={notifications.emailNotifications}
-              onCheckedChange={(checked) => updateNotifications({ emailNotifications: checked })}
             />
           </div>
         </CardContent>

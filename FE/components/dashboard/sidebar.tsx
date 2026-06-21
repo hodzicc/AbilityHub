@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import { useTranslation } from '@/components/providers'
 import { useAuth } from '@/components/providers'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Home,
@@ -17,6 +16,7 @@ import {
   Shield,
   ChevronLeft,
   Heart,
+  Palette,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -34,6 +34,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     { href: '/dashboard/children',     icon: Users,     label: t('nav.children'),      color: 'text-orange-300' },
     { href: '/dashboard/applications', icon: AppWindow, label: t('nav.applications'),  color: 'text-amber-300' },
     { href: '/dashboard/statistics',   icon: BarChart3, label: t('nav.statistics'),    color: 'text-emerald-300' },
+    // UI preferences are per-child, so this item makes no sense for admins (who have no children).
+    ...(user?.role !== 'admin'
+      ? [{ href: '/dashboard/preferences', icon: Palette, label: t('nav.preferences'), color: 'text-pink-300' }]
+      : []),
     { href: '/dashboard/settings',     icon: Settings,  label: t('nav.settings'),      color: 'text-purple-300' },
   ]
 
@@ -43,9 +47,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
-
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   return (
     <aside
@@ -114,7 +115,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 <div className={cn('my-3 border-t border-sidebar-border', isCollapsed && 'mx-1')} />
                 {!isCollapsed && (
                   <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-                    {t('admin.roleShort.admin')}
+                    Admin
                   </p>
                 )}
                 {adminItems.map((item) => {
@@ -142,23 +143,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           </nav>
         </ScrollArea>
 
-        {/* User card at bottom */}
-        <div className={cn('border-t border-sidebar-border p-3', isCollapsed && 'flex justify-center')}>
-          {!isCollapsed ? (
-            <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/60 px-3 py-2.5">
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className="bg-indigo-500/30 text-indigo-200 text-xs font-semibold">
-                  {user ? getInitials(user.name) : 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-sidebar-foreground">{user?.name}</p>
-                <p className="truncate text-xs text-sidebar-foreground/50">
-                  {user?.role === 'admin' ? t('admin.roleShort.admin') : t('admin.roleShort.parent')}
-                </p>
-              </div>
-            </div>
-          ) : (
+        {isCollapsed && (
+          <div className="flex justify-center border-t border-sidebar-border p-3">
             <Button
               variant="ghost"
               size="icon"
@@ -167,8 +153,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             >
               <ChevronLeft className="h-4 w-4 rotate-180" />
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </aside>
   )

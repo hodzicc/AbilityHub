@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { UIPreferences, NotificationSettings } from '@/lib/types'
-import { DEFAULT_PREFERENCES as defaultPreferences } from '@/lib/preferences'
 
 interface PreferencesContextType {
   preferences: UIPreferences
@@ -12,12 +11,20 @@ interface PreferencesContextType {
   resetPreferences: () => void
 }
 
+const defaultPreferences: UIPreferences = {
+  fontSize: 'medium',
+  colorScheme: 'default',
+  fontFamily: 'default',
+  reducedMotion: false,
+  highContrast: false,
+  soundEnabled: true
+}
+
 const defaultNotifications: NotificationSettings = {
   dailyReport: true,
   weeklyReport: true,
   achievementAlerts: true,
-  timeLimitAlerts: true,
-  emailNotifications: false
+  timeLimitAlerts: true
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
