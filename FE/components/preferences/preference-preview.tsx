@@ -1,7 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { COLOR_SCHEMES, FONT_SIZES } from '@/lib/preferences'
+import { COLOR_SCHEMES, FONT_FAMILIES, FONT_SIZES } from '@/lib/preferences'
+import { useTranslation } from '@/components/providers'
 import type { UIPreferences } from '@/lib/types'
 
 interface PreferencePreviewProps {
@@ -18,6 +19,7 @@ interface PreferencePreviewProps {
  * change before saving it.
  */
 export function PreferencePreview({ preferences, compact = false, className }: PreferencePreviewProps) {
+  const { t } = useTranslation()
   const maxWidth = compact ? 'max-w-[200px]' : 'max-w-[260px]'
   const minHeight = compact ? 'min-h-[280px]' : 'min-h-[380px]'
 
@@ -29,46 +31,67 @@ export function PreferencePreview({ preferences, compact = false, className }: P
         </div>
         <div
           className={cn(
-            'p-4',
+            'p-4 text-gray-900',
             minHeight,
-            preferences.colorScheme === 'high-contrast' && 'bg-black text-white',
+            // High-contrast preview uses the black-on-yellow combination
+            // (#000000 on #FFFF00) shown by Alonso-Virgós et al. (2018) to
+            // maximize sustained attention for users with Down syndrome —
+            // see ACCESSIBILITY_RESEARCH.md — not a generic black/white invert.
+            // The mockup's own backgrounds are always light, regardless of the
+            // app's light/dark theme, so its text color is pinned to a dark
+            // shade rather than inheriting the (possibly white) ambient
+            // foreground color.
+            preferences.colorScheme === 'default' && 'bg-white',
+            preferences.colorScheme === 'high-contrast' && 'bg-yellow-300 text-black',
             preferences.colorScheme === 'pastel' && 'bg-indigo-50',
             preferences.colorScheme === 'warm' && 'bg-orange-50'
           )}
-          style={{ fontSize: FONT_SIZES.find(f => f.value === preferences.fontSize)?.size }}
+          style={{
+            fontSize: FONT_SIZES.find(f => f.value === preferences.fontSize)?.size,
+            fontFamily: FONT_FAMILIES.find(f => f.value === preferences.fontFamily)?.stack,
+          }}
         >
           <div className={cn(
             'rounded-lg p-3 mb-4',
+            // The 'highContrast' boolean (independent of colorScheme — it's the
+            // "increase text and element contrast" accessibility toggle, not
+            // the high-contrast color palette) outlines every element with a
+            // ring so it produces a visible effect under any palette, without
+            // colliding with the border-color classes colorScheme sets below.
+            preferences.highContrast && 'ring-2 ring-gray-900 dark:ring-white',
             preferences.colorScheme === 'default' && 'bg-indigo-500',
-            preferences.colorScheme === 'high-contrast' && 'bg-white text-black',
-            preferences.colorScheme === 'pastel' && 'bg-indigo-200',
+            preferences.colorScheme === 'high-contrast' && 'bg-black text-yellow-300',
+            preferences.colorScheme === 'pastel' && 'bg-indigo-400',
             preferences.colorScheme === 'warm' && 'bg-orange-400'
           )}>
             <span className={cn('font-bold', preferences.colorScheme !== 'high-contrast' && 'text-white')}>
-              Učimo Slova
+              {t('settings.previewAppName')}
             </span>
           </div>
           <div className="space-y-4">
             <div className={cn('rounded-xl p-6 text-center',
+              preferences.highContrast && 'ring-2 ring-gray-900',
               preferences.colorScheme === 'default' && 'bg-indigo-100',
-              preferences.colorScheme === 'high-contrast' && 'bg-white text-black border-2 border-white',
+              preferences.colorScheme === 'high-contrast' && 'bg-yellow-300 border-2 border-black',
               preferences.colorScheme === 'pastel' && 'bg-indigo-100',
               preferences.colorScheme === 'warm' && 'bg-orange-100'
             )}>
-              <span className="text-6xl font-bold" style={{
-                color: COLOR_SCHEMES.find(c => c.value === preferences.colorScheme)?.colors[0]
-              }}>A</span>
+              <span
+                className={cn('text-6xl', preferences.highContrast ? 'font-extrabold' : 'font-bold')}
+                style={{ color: COLOR_SCHEMES.find(c => c.value === preferences.colorScheme)?.accentText }}
+              >A</span>
             </div>
-            <p className={cn('text-center', preferences.highContrast && 'font-bold')}>
-              Pronađi slovo A
+            <p className={cn('text-center', preferences.highContrast && 'font-bold underline')}>
+              {t('settings.previewFindLetter')}
             </p>
             <div className="grid grid-cols-3 gap-2">
               {['A', 'B', 'C'].map(letter => (
                 <button key={letter} className={cn(
                   'rounded-lg p-3 font-bold transition-transform',
                   !preferences.reducedMotion && 'hover:scale-105',
+                  preferences.highContrast && 'ring-2 ring-gray-900',
                   preferences.colorScheme === 'default' && 'bg-gray-100',
-                  preferences.colorScheme === 'high-contrast' && 'bg-white text-black border-2 border-black',
+                  preferences.colorScheme === 'high-contrast' && 'bg-black text-yellow-300 border-2 border-black',
                   preferences.colorScheme === 'pastel' && 'bg-white',
                   preferences.colorScheme === 'warm' && 'bg-white'
                 )}>

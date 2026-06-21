@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Nunito, Atkinson_Hyperlegible } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider, LanguageProvider, PreferencesProvider } from '@/components/providers'
@@ -11,9 +11,23 @@ const geistSans = Geist({
   variable: '--font-geist-sans'
 })
 
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-geist-mono'
+})
+
+// Selectable UI-preference fonts (see lib/preferences.ts FONT_FAMILIES) — must be
+// loaded here via next/font so the CSS variables they reference actually resolve
+// to these typefaces instead of silently falling back to the system font.
+const nunito = Nunito({
+  subsets: ['latin'],
+  variable: '--font-nunito',
+})
+
+const atkinsonHyperlegible = Atkinson_Hyperlegible({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-atkinson',
 })
 
 export const metadata: Metadata = {
@@ -61,7 +75,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bs" suppressHydrationWarning className="bg-background">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${atkinsonHyperlegible.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

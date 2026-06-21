@@ -99,10 +99,12 @@ export interface ActivityLog {
 // Preferences Types
 export type FontSize = 'small' | 'medium' | 'large' | 'extra-large'
 export type ColorScheme = 'default' | 'high-contrast' | 'pastel' | 'warm'
+export type FontFamily = 'default' | 'rounded' | 'legible'
 
 export interface UIPreferences {
   fontSize: FontSize
   colorScheme: ColorScheme
+  fontFamily: FontFamily
   reducedMotion: boolean
   highContrast: boolean
   soundEnabled: boolean
@@ -113,7 +115,6 @@ export interface NotificationSettings {
   weeklyReport: boolean
   achievementAlerts: boolean
   timeLimitAlerts: boolean
-  emailNotifications: boolean
 }
 
 // Auth Context Types

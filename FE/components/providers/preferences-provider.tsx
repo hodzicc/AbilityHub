@@ -14,6 +14,7 @@ interface PreferencesContextType {
 const defaultPreferences: UIPreferences = {
   fontSize: 'medium',
   colorScheme: 'default',
+  fontFamily: 'default',
   reducedMotion: false,
   highContrast: false,
   soundEnabled: true
@@ -23,8 +24,7 @@ const defaultNotifications: NotificationSettings = {
   dailyReport: true,
   weeklyReport: true,
   achievementAlerts: true,
-  timeLimitAlerts: true,
-  emailNotifications: false
+  timeLimitAlerts: true
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
@@ -33,7 +33,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [preferences, setPreferences] = useState<UIPreferences>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('abilityhub-preferences')
-      return stored ? JSON.parse(stored) : defaultPreferences
+      return stored ? { ...defaultPreferences, ...JSON.parse(stored) } : defaultPreferences
     }
     return defaultPreferences
   })

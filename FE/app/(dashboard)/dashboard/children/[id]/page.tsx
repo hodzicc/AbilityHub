@@ -11,12 +11,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PreferenceFields, PreferencePreview, AppPreferencesList } from '@/components/preferences'
+import { AppPreferencesList } from '@/components/preferences'
 import { AssignAppsDialog, TimeLimitDialog } from '@/components/children'
 import { calculateAge, formatDuration, cn } from '@/lib/utils'
-import { DEFAULT_PREFERENCES, prefsToRecord, recordToPrefs } from '@/lib/preferences'
+import { DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
 import type { Application, Child, UIPreferences } from '@/lib/types'
-import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Loader2, Plus, ShieldCheck, Pencil } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -33,7 +33,6 @@ import {
   apiGetApp,
   apiGetRestriction,
   apiGetPreferences,
-  apiSetPreferences,
   type DashboardResponse,
   type ApplicationResponse,
 } from '@/lib/api'
@@ -66,7 +65,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
   }>>([])
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null)
   const [globalPrefs, setGlobalPrefs] = useState<UIPreferences>(DEFAULT_PREFERENCES)
-  const [savingPrefs, setSavingPrefs] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [notFoundFlag, setNotFoundFlag] = useState(false)
   const [isAssignAppsOpen, setIsAssignAppsOpen] = useState(false)
@@ -124,18 +122,6 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
       else toast.error('Greška pri učitavanju profila')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleSaveGlobalPrefs = async () => {
-    setSavingPrefs(true)
-    try {
-      await apiSetPreferences(id, prefsToRecord(globalPrefs))
-      toast.success('Globalne preferencije sačuvane')
-    } catch {
-      toast.error('Greška pri čuvanju preferencija')
-    } finally {
-      setSavingPrefs(false)
     }
   }
 
@@ -374,33 +360,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
         {/* Preferences tab (parent only) */}
         {!isAdmin && (
         <TabsContent value="prefs" className="space-y-6">
-          {/* Global preferences */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-indigo-500" />
-                Globalne preferencije
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Podrazumijevane postavke za sve aplikacije. Svaka aplikacija može po potrebi imati vlastite izmjene.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
-                <div className="space-y-5">
-                  <PreferenceFields value={globalPrefs} onChange={setGlobalPrefs} idPrefix="global" />
-                  <Button onClick={handleSaveGlobalPrefs} disabled={savingPrefs}>
-                    {savingPrefs && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sačuvaj globalne preferencije
-                  </Button>
-                </div>
-                <PreferencePreview preferences={globalPrefs} className="lg:w-64" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Per-app overrides */}
-          {assignedApps.length > 0 && (
+          {/* Per-app preferences — global defaults are edited from the main "Preferences" menu */}
+          {assignedApps.length > 0 ? (
             <div>
               <h3 className="mb-3 text-base font-semibold">Preferencije po aplikaciji</h3>
               <p className="mb-4 text-sm text-muted-foreground">
@@ -408,6 +369,8 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
               </p>
               <AppPreferencesList childId={id} apps={assignedApps.map(({ app }) => app)} globalPrefs={globalPrefs} />
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('children.noAppsAssigned')}</p>
           )}
         </TabsContent>
         )}

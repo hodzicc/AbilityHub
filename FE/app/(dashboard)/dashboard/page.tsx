@@ -73,26 +73,30 @@ const quickActions = [
   },
 ]
 
-const platformCards = [
-  {
-    icon: ShieldCheck,
-    title: 'Jedinstvena prijava',
-    description: 'Roditelji, administratori i djeca koriste isti identitet kroz sve povezane aplikacije.',
-    color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
-    href: null,
-  },
-  {
-    icon: Sparkles,
-    title: 'Sinhronizovane preferencije',
-    description: 'Boje, font i pristupačnost se šalju svim referentnim aplikacijama automatski.',
-    color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-    href: '/dashboard/settings/preferences',
-  },
-]
+function getPlatformCards(isAdmin: boolean) {
+  return [
+    {
+      icon: ShieldCheck,
+      title: 'Jedinstvena prijava',
+      description: 'Roditelji, administratori i djeca koriste isti identitet kroz sve povezane aplikacije.',
+      color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
+      href: null,
+    },
+    // Synced preferences are per-child, so this card makes no sense for admins (who have no children).
+    ...(isAdmin ? [] : [{
+      icon: Sparkles,
+      title: 'Sinhronizovane preferencije',
+      description: 'Boje, font i pristupačnost se šalju svim referentnim aplikacijama automatski.',
+      color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+      href: '/dashboard/preferences',
+    }]),
+  ]
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
+  const platformCards = getPlatformCards(user?.role === 'admin')
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const gridColor = isDark ? '#334155' : '#e2e8f0'

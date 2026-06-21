@@ -4,11 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslation } from '@/components/providers'
 import { cn } from '@/lib/utils'
-import { Settings, Palette, Bell, User } from 'lucide-react'
+import { Settings, Bell, User } from 'lucide-react'
 
 const settingsNav = [
   { href: '/dashboard/settings', icon: Settings, labelKey: 'settings.general' },
-  { href: '/dashboard/settings/preferences', icon: Palette, labelKey: 'settings.preferences' },
   { href: '/dashboard/settings/notifications', icon: Bell, labelKey: 'settings.notifications' },
 ]
 
