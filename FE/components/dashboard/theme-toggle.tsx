@@ -39,9 +39,10 @@ export function ThemeToggle() {
           <Moon className="mr-2 h-4 w-4" />
           {t('settings.darkMode')}
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => setTheme('system')}
           className={theme === 'system' ? 'bg-accent' : ''}
+          title={t('settings.systemModeHint')}
         >
           <Monitor className="mr-2 h-4 w-4" />
           {t('settings.systemMode')}

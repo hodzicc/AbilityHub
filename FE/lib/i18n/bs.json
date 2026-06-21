@@ -223,7 +223,7 @@
     },
     "colorSchemeReasons": {
       "default": "Uravnotežena paleta indigo/zelene/žute boje za svakodnevnu upotrebu kada ne postoji specifična potreba pristupačnosti.",
-      "highContrast": "Crna na žutoj podlozi (#000000 na #FFFF00, kontrast 19,56:1) je u eye-tracking istraživanju proizvela najduže zadržavanje pažnje kod korisnika sa Down sindromom (Alonso-Virgós i sar., 2018) — preporučeno za korisnike kojima je potrebna maksimalna vizuelna razlika.",
+      "highContrast": "Crni tekst na žutoj podlozi daje najjači mogući vizuelni kontrast, što olakšava održavanje pažnje i razlikovanje elemenata — preporučeno za korisnike kojima je potrebna maksimalna vizuelna razlika.",
       "pastel": "Manje zasićeni tonovi smanjuju vizuelni intenzitet za korisnike kojima su jarke/visokokontrastne boje preopterećujuće.",
       "warm": "Topliji tonovi su alternativni opštenamjenski izbor za korisnike koji ga jednostavno preferiraju — odgovor na boje varira od osobe do osobe."
     },
@@ -237,7 +237,9 @@
     "accessibility": "Pristupačnost",
     "accessibilityDesc": "Postavke pristupačnosti za mobilne aplikacije",
     "preview": "Pregled",
-    "previewDesc": "Ovako će izgledati interfejs na mobilnim aplikacijama",
+    "previewDesc": "Ovako će izgledati interfejs u aplikacijama",
+    "previewMobile": "Mobilna",
+    "previewWeb": "Web",
     "previewAppName": "Učimo Slova",
     "previewFindLetter": "Pronađi slovo A",
     "syncPreferences": "Sinhronizuj preferencije",
@@ -374,6 +376,11 @@
     "colorSchemeLabel": "Shema boja"
   },
   "appPreferences": {
+    "platform": {
+      "mobile": "Mobilna",
+      "web": "Web",
+      "hybrid": "Mobilna i web"
+    },
     "columnApp": "Aplikacija",
     "columnFont": "Font",
     "columnFontFamily": "Porodica fonta",

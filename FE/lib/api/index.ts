@@ -1,5 +1,7 @@
 // Central API client — all calls go through the Gateway at NEXT_PUBLIC_API_URL.
 
+import { ROLE_ID } from '@/lib/constants'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5046'
 
 // ---------- token helpers ----------
@@ -96,7 +98,7 @@ export interface UserProfileResponse {
   email: string
   firstName: string
   lastName: string
-  roleId: number      // 1=Admin 2=Parent 3=Child
+  roleId: number      // see ROLE_ID in lib/constants.ts
   isActive: boolean
   dateOfBirth?: string  // ISO date string
   gender?: string
@@ -210,7 +212,7 @@ export async function apiRegister(
   const res = await fetch(`${BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, firstName, lastName, roleId: 2 }),
+    body: JSON.stringify({ email, password, firstName, lastName, roleId: ROLE_ID.PARENT }),
   })
   const data: AuthResponse = await res.json()
   if (!res.ok || !data.success) throw new ApiError(res.status, data.message ?? 'Registration failed')

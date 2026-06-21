@@ -6,24 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/components/providers'
 import type { Application } from '@/lib/types'
-import {
-  BookOpen,
-  Calculator,
-  MessageCircle,
-  Palette,
-  Clock,
-  Gamepad2,
-  AppWindow,
-  ArrowRight,
-  Users,
-  Pencil,
-  Power,
-  PowerOff,
-} from 'lucide-react'
-
-const iconMap: Record<string, React.ElementType> = {
-  BookOpen, Calculator, MessageCircle, Palette, Clock, Gamepad2, AppWindow,
-}
+import { ArrowRight, Users, Pencil, Power, PowerOff } from 'lucide-react'
+import { getAppIcon } from '@/lib/app-icons'
 
 interface AppCardProps {
   app: Application
@@ -35,7 +19,7 @@ interface AppCardProps {
 
 export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onToggleActive }: AppCardProps) {
   const { t } = useTranslation()
-  const Icon = iconMap[app.icon] || AppWindow
+  const Icon = getAppIcon(app.icon)
   const color = app.color || '#6366f1'
 
   return (
@@ -67,7 +51,7 @@ export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onTog
               {t(`applications.categories.${app.category}`)}
             </Badge>
             {!app.isActive && (
-              <Badge variant="secondary" className="text-xs">Neaktivna</Badge>
+              <Badge variant="secondary" className="text-xs">{t('common.inactive')}</Badge>
             )}
           </div>
         </div>
@@ -92,7 +76,7 @@ export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onTog
             </Link>
           </Button>
           {isAdmin && onEdit && (
-            <Button variant="outline" size="icon" className="shrink-0" title="Uredi aplikaciju" onClick={onEdit}>
+            <Button variant="outline" size="icon" className="shrink-0" title={t('applications.editApp')} onClick={onEdit}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -101,7 +85,7 @@ export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onTog
               variant="outline"
               size="icon"
               className={`shrink-0 ${app.isActive ? 'text-destructive hover:text-destructive' : ''}`}
-              title={app.isActive ? 'Deaktiviraj aplikaciju' : 'Aktiviraj aplikaciju'}
+              title={app.isActive ? t('applications.deactivateApp') : t('applications.activateApp')}
               onClick={onToggleActive}
             >
               {app.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}

@@ -15,11 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { FontSize, ColorScheme, FontFamily } from '@/lib/types'
 import { FONT_SIZES as fontSizes, COLOR_SCHEMES as colorSchemes, FONT_FAMILIES as fontFamilies } from '@/lib/preferences'
 import { PreferencePreview } from '@/components/preferences'
 import { toast } from 'sonner'
-import { Smartphone, RefreshCw, Loader2, Info } from 'lucide-react'
+import { Smartphone, Globe, RefreshCw, Loader2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   apiGetChildren,
@@ -37,6 +38,7 @@ export default function PreferencesPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>('')
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingChild, setIsLoadingChild] = useState(false)
+  const [previewPlatform, setPreviewPlatform] = useState<'mobile' | 'web'>('mobile')
 
   // Load children list on mount
   useEffect(() => {
@@ -297,7 +299,24 @@ export default function PreferencesPage() {
                 <CardDescription>{t('settings.previewDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <PreferencePreview preferences={preferences} />
+                <Tabs value={previewPlatform} onValueChange={(v) => setPreviewPlatform(v as 'mobile' | 'web')}>
+                  <TabsList className="mb-4 grid w-full grid-cols-2">
+                    <TabsTrigger value="mobile">
+                      <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                      {t('settings.previewMobile')}
+                    </TabsTrigger>
+                    <TabsTrigger value="web">
+                      <Globe className="mr-1.5 h-3.5 w-3.5" />
+                      {t('settings.previewWeb')}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="mobile">
+                    <PreferencePreview preferences={preferences} platform="mobile" />
+                  </TabsContent>
+                  <TabsContent value="web">
+                    <PreferencePreview preferences={preferences} platform="web" />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 

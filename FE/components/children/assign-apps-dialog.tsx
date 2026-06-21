@@ -15,25 +15,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTranslation } from '@/components/providers'
 import { apiGetApps, apiAssignApp, apiSetRestriction, type ApplicationResponse } from '@/lib/api'
+import { getAppIcon } from '@/lib/app-icons'
 import type { Application } from '@/lib/types'
-import {
-  BookOpen,
-  Calculator,
-  MessageCircle,
-  Palette,
-  Clock,
-  Gamepad2,
-  AppWindow,
-  Check,
-  Plus,
-  Loader2,
-  Search,
-} from 'lucide-react'
+import { Check, Plus, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
-
-const iconMap: Record<string, React.ElementType> = {
-  BookOpen, Calculator, MessageCircle, Palette, Clock, Gamepad2, AppWindow,
-}
 
 function responseToApp(r: ApplicationResponse): Application {
   let features: string[] = []
@@ -85,7 +70,7 @@ export function AssignAppsDialog({
         if (!active) return
         setApps(res.filter(a => a.isActive).map(responseToApp))
       })
-      .catch(() => toast.error('Greška pri učitavanju aplikacija'))
+      .catch(() => toast.error(t('applications.loadError')))
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [open])
@@ -131,15 +116,15 @@ export function AssignAppsDialog({
       if (succeededIds.length > 0) {
         toast.success(
           succeededIds.length === 1
-            ? 'Aplikacija uspješno dodijeljena'
-            : `Dodijeljeno ${succeededIds.length} aplikacija`
+            ? t('applications.assignedOneSuccess')
+            : t('applications.assignedManySuccess', { count: succeededIds.length })
         )
       }
       if (failed > 0) {
         toast.error(
           failed === 1
-            ? 'Greška pri dodjeli jedne aplikacije'
-            : `Greška pri dodjeli ${failed} aplikacija`
+            ? t('applications.assignOneError')
+            : t('applications.assignManyError', { count: failed })
         )
       }
 
@@ -174,9 +159,9 @@ export function AssignAppsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Dodaj aplikacije — {childName}</DialogTitle>
+          <DialogTitle>{t('applications.bulkAssignTitle', { name: childName })}</DialogTitle>
           <DialogDescription>
-            Odaberite jednu ili više aplikacija i kliknite &quot;Sačuvaj&quot; da ih dodijelite djetetu.
+            {t('applications.bulkAssignDesc', { saveLabel: t('common.save') })}
           </DialogDescription>
         </DialogHeader>
 
@@ -188,11 +173,11 @@ export function AssignAppsDialog({
           </div>
         ) : apps.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Nema dostupnih aplikacija.
+            {t('applications.noAppsAvailableShort')}
           </p>
         ) : availableApps.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Sve dostupne aplikacije su već dodijeljene ovom djetetu.
+            {t('applications.allAssigned')}
           </p>
         ) : (
           <>
@@ -209,11 +194,11 @@ export function AssignAppsDialog({
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
               {filteredApps.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nema rezultata za &quot;{search}&quot;.
+                  {t('applications.noResultsFor', { query: search })}
                 </p>
               ) : (
                 filteredApps.map(app => {
-                  const Icon = iconMap[app.icon] || AppWindow
+                  const Icon = getAppIcon(app.icon)
                   const isSelected = selected.has(app.id)
                   return (
                     <div
@@ -250,12 +235,12 @@ export function AssignAppsDialog({
                           {isSelected ? (
                             <>
                               <Check className="mr-1.5 h-4 w-4" />
-                              Odabrano
+                              {t('applications.selected')}
                             </>
                           ) : (
                             <>
                               <Plus className="mr-1.5 h-4 w-4" />
-                              Dodaj
+                              {t('common.add')}
                             </>
                           )}
                         </Button>
@@ -263,7 +248,7 @@ export function AssignAppsDialog({
                       {isSelected && (
                         <div className="mt-2 flex items-center gap-2 pl-[52px]">
                           <Label htmlFor={`limit-${app.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
-                            Dnevni limit (min):
+                            {t('applications.dailyLimitMinShort')}
                           </Label>
                           <Input
                             id={`limit-${app.id}`}
@@ -271,7 +256,7 @@ export function AssignAppsDialog({
                             min={0}
                             value={timeLimits[app.id] ?? ''}
                             onChange={e => setTimeLimits(prev => ({ ...prev, [app.id]: e.target.value }))}
-                            placeholder="Bez ograničenja"
+                            placeholder={t('applications.noLimit')}
                             className="h-8 max-w-[140px]"
                           />
                         </div>
@@ -290,7 +275,7 @@ export function AssignAppsDialog({
           </Button>
           <Button onClick={handleSave} disabled={saving || availableApps.length === 0}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {selected.size > 0 ? `Sačuvaj (${selected.size})` : 'Sačuvaj'}
+            {selected.size > 0 ? t('applications.saveCount', { count: selected.size }) : t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

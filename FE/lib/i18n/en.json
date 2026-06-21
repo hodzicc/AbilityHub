@@ -223,7 +223,7 @@
     },
     "colorSchemeReasons": {
       "default": "A balanced indigo/green/amber palette suited to everyday use when no specific accessibility need is in play.",
-      "highContrast": "Black-on-yellow (#000000 on #FFFF00, 19.56:1 contrast) produced the longest sustained attention among users with Down syndrome in eye-tracking research (Alonso-Virgós et al., 2018) — recommended for readers who need maximum visual distinction.",
+      "highContrast": "Black text on a yellow background gives the strongest possible visual contrast, making it easier to hold attention and tell elements apart — recommended for readers who need maximum visual distinction.",
       "pastel": "Lower-saturation tones reduce visual intensity for readers who find bright/high-contrast colors overstimulating.",
       "warm": "Warmer tones offer an alternative general-purpose feel for readers who simply prefer it — color response varies from person to person."
     },
@@ -237,7 +237,9 @@
     "accessibility": "Accessibility",
     "accessibilityDesc": "Accessibility settings for the mobile applications",
     "preview": "Preview",
-    "previewDesc": "This is how the interface will look on mobile applications",
+    "previewDesc": "This is how the interface will look in the applications",
+    "previewMobile": "Mobile",
+    "previewWeb": "Web",
     "previewAppName": "Letter Learning",
     "previewFindLetter": "Find the letter A",
     "syncPreferences": "Sync preferences",
@@ -374,6 +376,11 @@
     "colorSchemeLabel": "Color scheme"
   },
   "appPreferences": {
+    "platform": {
+      "mobile": "Mobile",
+      "web": "Web",
+      "hybrid": "Mobile & web"
+    },
     "columnApp": "Application",
     "columnFont": "Font",
     "columnFontFamily": "Font family",

@@ -101,7 +101,7 @@ export function ActivityFeed() {
           <div className="space-y-1 p-4 pt-0">
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nema nedavnih aktivnosti
+                {t('dashboard.noRecentActivity')}
               </p>
             ) : (
               items.map(item => {
@@ -121,7 +121,7 @@ export function ActivityFeed() {
                         <span className="font-medium text-sm">{item.childName}</span>
                         <Badge variant="secondary" className={actionColors[item.action]}>
                           <Icon className="h-3 w-3 mr-1" />
-                          {item.action}
+                          {t(`dashboard.actions.${item.action}`)}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">

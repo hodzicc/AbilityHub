@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from '@/components/providers'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface TimeLimitDialogProps {
  * assigned to a child, and optionally block the app temporarily.
  */
 export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, onSaved }: TimeLimitDialogProps) {
+  const { t } = useTranslation()
   const [value, setValue] = useState('')
   const [isBlocked, setIsBlocked] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -54,17 +56,17 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
     const trimmed = value.trim()
     const minutes = trimmed === '' ? null : Number(trimmed)
     if (minutes !== null && (Number.isNaN(minutes) || minutes < 0)) {
-      toast.error('Unesite ispravan broj minuta')
+      toast.error(t('timeLimit.invalidMinutes'))
       return
     }
     setSaving(true)
     try {
       await apiSetRestriction(childId, appId, { dailyTimeLimitMinutes: minutes, isBlocked })
-      toast.success('Vremensko ograničenje sačuvano')
+      toast.success(t('timeLimit.saved'))
       onOpenChange(false)
       await onSaved?.()
     } catch {
-      toast.error('Greška pri čuvanju ograničenja')
+      toast.error(t('timeLimit.saveError'))
     } finally {
       setSaving(false)
     }
@@ -74,9 +76,9 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Vremensko ograničenje — {appName}</DialogTitle>
+          <DialogTitle>{t('timeLimit.title', { name: appName })}</DialogTitle>
           <DialogDescription>
-            Postavite dnevno ograničenje korištenja (u minutama) ili ostavite prazno za bez ograničenja.
+            {t('timeLimit.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,14 +87,14 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
         ) : (
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="dailyLimit">Dnevni limit (minuta)</Label>
+              <Label htmlFor="dailyLimit">{t('timeLimit.dailyLimitMinutes')}</Label>
               <Input
                 id="dailyLimit"
                 type="number"
                 min={0}
                 value={value}
                 onChange={e => setValue(e.target.value)}
-                placeholder="Bez ograničenja"
+                placeholder={t('timeLimit.noLimitPlaceholder')}
                 disabled={saving}
               />
             </div>
@@ -104,18 +106,18 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
                 disabled={saving}
                 className="h-4 w-4 rounded border-input accent-primary"
               />
-              Privremeno blokiraj aplikaciju
+              {t('timeLimit.blockTemporarily')}
             </label>
           </div>
         )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Odustani
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSave} disabled={saving || loading}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sačuvaj
+            {t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>

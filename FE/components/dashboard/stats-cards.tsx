@@ -62,7 +62,7 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
       <StatCard
         title={t('dashboard.totalChildren')}
         value={childrenCount}
-        description="Aktivni profili"
+        description={t('dashboard.totalChildrenDesc')}
         icon={Users}
         gradient="bg-gradient-to-br from-indigo-500 to-indigo-700"
         iconBg="bg-white/20"
@@ -71,7 +71,7 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
       <StatCard
         title={t('dashboard.activeApps')}
         value={activeAppsCount}
-        description="Dostupne aplikacije"
+        description={t('dashboard.activeAppsDesc')}
         icon={AppWindow}
         gradient="bg-gradient-to-br from-orange-400 to-orange-600"
         iconBg="bg-white/20"
@@ -80,7 +80,7 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
       <StatCard
         title={t('dashboard.todayUsage')}
         value={formatDuration(todayUsageMinutes)}
-        description="Ukupno danas"
+        description={t('dashboard.todayUsageDesc')}
         icon={Clock}
         gradient="bg-gradient-to-br from-emerald-400 to-emerald-600"
         iconBg="bg-white/20"
@@ -89,7 +89,7 @@ export function StatsCards({ childrenCount, activeAppsCount, todayUsageMinutes, 
       <StatCard
         title={t('dashboard.avgProgress')}
         value={`${avgProgress}%`}
-        description="Prosjek napretka"
+        description={t('dashboard.avgProgressDesc')}
         icon={TrendingUp}
         gradient="bg-gradient-to-br from-amber-400 to-amber-600"
         iconBg="bg-white/20"

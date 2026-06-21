@@ -39,7 +39,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/60 bg-white/50 py-4 backdrop-blur-sm dark:border-border dark:bg-background/50">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} AbilityHub. Sva prava zadržana.
+          &copy; {new Date().getFullYear()} AbilityHub. {t('common.allRightsReserved')}
         </div>
       </footer>
     </div>

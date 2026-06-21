@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import type { Application, AppCategory } from '@/lib/types'
 import { Search, AppWindow, Plus } from 'lucide-react'
 import { apiGetApps, apiGetChildren, apiGetChildApps, apiUpdateApp, apiDeactivateApp, type ApplicationResponse } from '@/lib/api'
+import { APP_CATEGORIES } from '@/lib/constants'
 import { toast } from 'sonner'
 
-const categories: (AppCategory | 'all')[] = ['all', 'education', 'speech', 'motor', 'daily', 'games']
+const categories: (AppCategory | 'all')[] = ['all', ...APP_CATEGORIES.map(c => c.value)]
 
 function responseToApp(r: ApplicationResponse): Application {
   let features: string[] = []
@@ -63,7 +64,7 @@ export default function ApplicationsPage() {
         setAssignedCounts(counts)
       }
     } catch {
-      toast.error('Greška pri učitavanju aplikacija')
+      toast.error(t('applications.loadError'))
     } finally {
       setIsLoading(false)
     }
@@ -78,10 +79,10 @@ export default function ApplicationsPage() {
     }
     try {
       await apiUpdateApp(app.id, { ...app, isActive: true })
-      toast.success(`Aplikacija "${app.name}" aktivirana`)
+      toast.success(t('applications.activatedToast', { name: app.name }))
       await loadApps()
     } catch {
-      toast.error('Greška pri aktivaciji aplikacije')
+      toast.error(t('applications.activateError'))
     }
   }
 
@@ -89,11 +90,11 @@ export default function ApplicationsPage() {
     if (!deactivateApp) return
     try {
       await apiDeactivateApp(deactivateApp.id)
-      toast.success(`Aplikacija "${deactivateApp.name}" deaktivirana`)
+      toast.success(t('applications.deactivatedToast', { name: deactivateApp.name }))
       setDeactivateApp(null)
       await loadApps()
     } catch {
-      toast.error('Greška pri deaktivaciji aplikacije')
+      toast.error(t('applications.deactivateError'))
       setDeactivateApp(null)
     }
   }
@@ -115,7 +116,7 @@ export default function ApplicationsPage() {
             className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Dodaj aplikaciju
+            {t('applications.addApp')}
           </Button>
         )}
       </PageHeader>
@@ -177,9 +178,9 @@ export default function ApplicationsPage() {
       ) : (
         <EmptyState
           icon={AppWindow}
-          title={searchQuery ? 'Nema rezultata pretrage' : t('applications.noApps')}
-          description={searchQuery ? 'Pokušajte s drugim pojmom' : t('applications.noAppsDesc')}
-          action={isAdmin && !searchQuery ? { label: 'Dodaj aplikaciju', onClick: () => setIsAddOpen(true) } : undefined}
+          title={searchQuery ? t('common.noSearchResults') : t('applications.noApps')}
+          description={searchQuery ? t('common.tryDifferentTerm') : t('applications.noAppsDesc')}
+          action={isAdmin && !searchQuery ? { label: t('applications.addApp'), onClick: () => setIsAddOpen(true) } : undefined}
         />
       )}
 
@@ -200,9 +201,9 @@ export default function ApplicationsPage() {
       <ConfirmationDialog
         open={!!deactivateApp}
         onOpenChange={(open) => !open && setDeactivateApp(null)}
-        title="Deaktiviraj aplikaciju"
-        description={`Da li ste sigurni da želite deaktivirati aplikaciju "${deactivateApp?.name}"? Aplikacija više neće biti dostupna za dodjelu djeci.`}
-        confirmLabel="Deaktiviraj"
+        title={t('applications.deactivateTitle')}
+        description={t('applications.deactivateConfirm', { name: deactivateApp?.name ?? '' })}
+        confirmLabel={t('applications.deactivateAction')}
         variant="destructive"
         onConfirm={handleConfirmDeactivate}
       />

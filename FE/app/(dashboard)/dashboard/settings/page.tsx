@@ -38,7 +38,7 @@ export default function SettingsPage() {
       await apiUpdateProfile(user.id, { firstName, lastName })
       toast.success(t('settings.saveSuccess'))
     } catch {
-      toast.error('Greška pri spremanju')
+      toast.error(t('settings.saveError'))
     } finally {
       setIsSaving(false)
     }
@@ -56,7 +56,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('settings.general')}
-        description="Upravljajte postavkama vašeg računa"
+        description={t('settings.generalDesc')}
       />
 
       {/* Profile Card */}
@@ -64,9 +64,9 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Profil
+            {t('settings.profile')}
           </CardTitle>
-          <CardDescription>Vaše osobne informacije</CardDescription>
+          <CardDescription>{t('settings.profileDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
@@ -81,12 +81,12 @@ export default function SettingsPage() {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
                 <Badge variant="secondary">
                   <Shield className="mr-1 h-3 w-3" />
-                  {user?.role === 'admin' ? 'Administrator' : 'Roditelj/Staratelj'}
+                  {user?.role === 'admin' ? t('admin.roles.admin') : t('admin.roles.parent')}
                 </Badge>
                 {user?.createdAt && (
                   <Badge variant="outline">
                     <Calendar className="mr-1 h-3 w-3" />
-                    Član od {new Date(user.createdAt).toLocaleDateString('bs-BA')}
+                    {t('settings.memberSince', { date: new Date(user.createdAt).toLocaleDateString(locale === 'bs' ? 'bs-BA' : 'en-US') })}
                   </Badge>
                 )}
               </div>
@@ -95,7 +95,7 @@ export default function SettingsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="firstName">Ime</Label>
+              <Label htmlFor="firstName">{t('children.firstName')}</Label>
               <Input
                 id="firstName"
                 value={firstName}
@@ -104,7 +104,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">Prezime</Label>
+              <Label htmlFor="lastName">{t('children.lastName')}</Label>
               <Input
                 id="lastName"
                 value={lastName}
@@ -127,7 +127,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>{t('settings.language')}</CardTitle>
-          <CardDescription>Odaberite jezik sučelja</CardDescription>
+          <CardDescription>{t('settings.languageDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="max-w-xs">

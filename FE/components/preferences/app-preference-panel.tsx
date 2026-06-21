@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Smartphone, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useTranslation } from '@/components/providers'
 import { PreferenceFields } from './preference-fields'
 import { PreferencePreview } from './preference-preview'
 import { prefsToRecord, resolvePrefs } from '@/lib/preferences'
@@ -25,16 +27,9 @@ interface AppPreferencePanelProps {
 }
 
 /**
- * Per-application preference override editor.
- *
- * Replaces the old approach of duplicating the entire global preferences form
- * per app. Instead:
- *  - Starts from the app's *resolved* (effective) settings — global defaults
- *    merged with any existing override — not hardcoded defaults.
- *  - A single "use global settings" switch makes the inheritance explicit:
- *    off = this app currently has its own overrides, on = it follows the
- *    child's global preferences.
- *  - A live preview shows the effect of the current selection immediately.
+ * Per-application preference override editor. Starts from the app's resolved
+ * (effective) settings and exposes a single switch to follow the child's
+ * global preferences or maintain its own override.
  */
 export function AppPreferencePanel({
   childId,
@@ -44,10 +39,17 @@ export function AppPreferencePanel({
   onOverrideChange,
   compactPreview = true,
 }: AppPreferencePanelProps) {
+  const { t } = useTranslation()
   const hasOverride = Object.keys(override).length > 0
   const [useGlobal, setUseGlobal] = useState(!hasOverride)
   const [prefs, setPrefs] = useState<UIPreferences>(() => resolvePrefs(globalPrefs, override))
   const [saving, setSaving] = useState(false)
+  // The app's platform decides which device chrome the preview shows. 'hybrid'
+  // apps run on both, so they get a tab switcher; mobile/web apps just show
+  // the one device they actually run on.
+  const [previewPlatform, setPreviewPlatform] = useState<'mobile' | 'web'>(
+    app.platform === 'web' ? 'web' : 'mobile'
+  )
 
   const handleToggleGlobal = (checked: boolean) => {
     setUseGlobal(checked)
@@ -67,15 +69,15 @@ export function AppPreferencePanel({
       if (useGlobal) {
         await apiClearAppPreferences(childId, app.id)
         onOverrideChange({})
-        toast.success(`"${app.name}" sada koristi globalne postavke`)
+        toast.success(t('appPreferences.usesGlobalNowToast', { name: app.name }))
       } else {
         const record = prefsToRecord(prefs)
         await apiSetAppPreferences(childId, app.id, record)
         onOverrideChange(record)
-        toast.success(`Prilagođene postavke za "${app.name}" sačuvane`)
+        toast.success(t('appPreferences.customSavedToast', { name: app.name }))
       }
     } catch {
-      toast.error('Greška pri čuvanju postavki')
+      toast.error(t('appPreferences.saveError'))
     } finally {
       setSaving(false)
     }
@@ -83,14 +85,17 @@ export function AppPreferencePanel({
 
   const previewPrefs = useGlobal ? globalPrefs : prefs
 
+  const preview = (platform: 'mobile' | 'web') => (
+    <PreferencePreview preferences={previewPrefs} compact={compactPreview} platform={platform} />
+  )
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border p-3">
         <div className="pr-4">
-          <Label className="text-sm font-medium">Koristi globalne postavke</Label>
+          <Label className="text-sm font-medium">{t('appPreferences.useGlobalLabel')}</Label>
           <p className="text-xs text-muted-foreground">
-            Kada je uključeno, &quot;{app.name}&quot; prati opće preferencije djeteta. Isključite da
-            postavite font, boje i pristupačnost samo za ovu aplikaciju.
+            {t('appPreferences.useGlobalDesc', { name: app.name })}
           </p>
         </div>
         <Switch checked={useGlobal} onCheckedChange={handleToggleGlobal} />
@@ -102,15 +107,32 @@ export function AppPreferencePanel({
         )}
         <div className={!useGlobal ? '' : 'lg:col-span-2'}>
           <p className="mb-2 text-sm font-medium text-muted-foreground">
-            {useGlobal ? 'Pregled — globalne postavke' : 'Pregled — postavke za ovu aplikaciju'}
+            {useGlobal ? t('appPreferences.previewGlobal') : t('appPreferences.previewCustom')}
           </p>
-          <PreferencePreview preferences={previewPrefs} compact={compactPreview} />
+          {app.platform === 'hybrid' ? (
+            <Tabs value={previewPlatform} onValueChange={(v) => setPreviewPlatform(v as 'mobile' | 'web')}>
+              <TabsList className="mb-3 grid w-full grid-cols-2">
+                <TabsTrigger value="mobile">
+                  <Smartphone className="mr-1.5 h-3.5 w-3.5" />
+                  {t('settings.previewMobile')}
+                </TabsTrigger>
+                <TabsTrigger value="web">
+                  <Globe className="mr-1.5 h-3.5 w-3.5" />
+                  {t('settings.previewWeb')}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="mobile">{preview('mobile')}</TabsContent>
+              <TabsContent value="web">{preview('web')}</TabsContent>
+            </Tabs>
+          ) : (
+            preview(app.platform === 'web' ? 'web' : 'mobile')
+          )}
         </div>
       </div>
 
       <Button size="sm" onClick={handleSave} disabled={saving}>
         {saving && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-        {useGlobal ? 'Sačuvaj (koristi globalne)' : `Sačuvaj za ${app.name}`}
+        {useGlobal ? t('appPreferences.saveGlobal') : t('appPreferences.saveFor', { name: app.name })}
       </Button>
     </div>
   )

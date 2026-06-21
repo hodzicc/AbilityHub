@@ -18,6 +18,7 @@ import {
   apiDeactivateUser,
   type UserProfileResponse,
 } from '@/lib/api'
+import { ROLE_ID } from '@/lib/constants'
 import { toast } from 'sonner'
 
 function profileToChild(p: UserProfileResponse, guardianId: string, assignedApps: string[] = []): Child {
@@ -52,7 +53,7 @@ export default function ChildrenPage() {
       if (user.role === 'admin') {
         // Admin sees all children across the system
         const allUsers = await apiGetAllUsers(1, 200)
-        profiles = allUsers.items.filter(u => u.roleId === 3)
+        profiles = allUsers.items.filter(u => u.roleId === ROLE_ID.CHILD)
       } else {
         profiles = await apiGetChildren(user.id)
       }
@@ -64,7 +65,7 @@ export default function ChildrenPage() {
       )
       setChildren(enriched)
     } catch {
-      toast.error('Greška pri učitavanju djece')
+      toast.error(t('children.loadError'))
     } finally {
       setIsLoading(false)
     }
@@ -99,7 +100,7 @@ export default function ChildrenPage() {
         setEditChild(null)
         await loadChildren()
       } catch {
-        toast.error('Greška pri ažuriranju profila')
+        toast.error(t('children.updateError'))
       }
     } else {
       // Create new child account
@@ -111,10 +112,10 @@ export default function ChildrenPage() {
           password,
           firstName: childData.firstName,
           lastName: childData.lastName,
-          roleId: 3, // Child
+          roleId: ROLE_ID.CHILD,
         })
         if (!result.success) {
-          toast.error('Greška pri kreiranju djeteta')
+          toast.error(t('children.createError'))
           return
         }
         // Set dateOfBirth and gender via profile update
@@ -127,7 +128,7 @@ export default function ChildrenPage() {
         toast.success(t('children.addSuccess'))
         await loadChildren()
       } catch {
-        toast.error('Greška pri dodavanju djeteta')
+        toast.error(t('children.addError'))
       }
     }
   }
@@ -136,11 +137,11 @@ export default function ChildrenPage() {
     if (!deleteChild) return
     try {
       await apiDeactivateUser(deleteChild.id)
-      toast.success('Dijete deaktivirano')
+      toast.success(t('children.deactivatedToast'))
       setDeleteChild(null)
       await loadChildren()
     } catch {
-      toast.error('Greška pri brisanju djeteta')
+      toast.error(t('children.deactivateError'))
       setDeleteChild(null)
     }
   }
@@ -163,7 +164,7 @@ export default function ChildrenPage() {
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-900/10">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
           <p className="text-sm text-indigo-700 dark:text-indigo-300">
-            Djecu kreiraju roditelji iz svog naloga. Administrator ima pregled svih dječjih profila (samo za uvid) — upravljanje korisničkim nalozima dostupno je u Admin panelu.
+            {t('children.adminInfo')}
           </p>
         </div>
       )}
@@ -204,8 +205,8 @@ export default function ChildrenPage() {
       ) : (
         <EmptyState
           icon={Users}
-          title={searchQuery ? 'Nema rezultata pretrage' : t('children.noChildren')}
-          description={searchQuery ? 'Pokušajte s drugim pojmom' : t('children.noChildrenDesc')}
+          title={searchQuery ? t('common.noSearchResults') : t('children.noChildren')}
+          description={searchQuery ? t('common.tryDifferentTerm') : t('children.noChildrenDesc')}
           action={!searchQuery && user?.role !== 'admin' ? {
             label: t('children.addChild'),
             onClick: () => setIsAddDialogOpen(true)
