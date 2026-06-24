@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth, useTranslation } from '@/components/providers'
-import { PageHeader } from '@/components/shared'
+import { PageHeader, EmptyState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { formatDuration } from '@/lib/utils'
+import { formatDuration, formatShortDuration } from '@/lib/utils'
 import {
   BarChart,
   Bar,
@@ -28,62 +28,75 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { Clock, TrendingUp, Calendar, Download, Play, CheckCircle, Pause, Trophy, Sparkles, Loader2 } from 'lucide-react'
+import { Clock, TrendingUp, Calendar, Sparkles, Loader2, Play, BarChart3 } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
   apiGetChildren,
   apiGetDashboard,
   apiGetApp,
+  apiGetPreferences,
   type DashboardResponse,
   type UserProfileResponse,
 } from '@/lib/api'
 import type { AppCategory, ActivityMetrics } from '@/lib/types'
-import { APP_CATEGORIES } from '@/lib/constants'
+import { APP_CATEGORIES, DEFAULT_APP_COLOR } from '@/lib/constants'
+import { ACTIVITY_ICONS, activityTypeToAction } from '@/lib/activity'
+import { COLOR_SCHEMES, recordToPrefs } from '@/lib/preferences'
 import { WeeklyCheckInCard } from '@/components/statistics/weekly-checkin-card'
+import { ActivityHeatmap } from '@/components/statistics/activity-heatmap'
 import { useUsageRealtime } from '@/lib/realtime/use-usage-realtime'
 
 const categories: (AppCategory | 'all')[] = ['all', ...APP_CATEGORIES.map(c => c.value)]
-
-const actionIcons = {
-  started: Play,
-  completed: CheckCircle,
-  paused: Pause,
-  achievement: Trophy,
-}
-
-function activityTypeToAction(type: string): keyof typeof actionIcons {
-  const t = type.toLowerCase()
-  if (t.includes('start') || t.includes('session')) return 'started'
-  if (t.includes('achiev') || t.includes('badge')) return 'achievement'
-  if (t.includes('paus')) return 'paused'
-  return 'completed'
-}
 
 interface ChildData {
   profile: UserProfileResponse
   dashboard: DashboardResponse | null
 }
 
+/** A zeroed dashboard for a child, used when a category filter matches no apps. */
+function emptyDashboard(childId: string): DashboardResponse {
+  return {
+    childId,
+    generatedAt: new Date().toISOString(),
+    totalUsageMinutes: 0,
+    activityCount: 0,
+    avgProgressPercent: null,
+    weeklyConsistency: null,
+    perApp: [],
+    recentActivities: [],
+    recommendations: [],
+    activeDays: [],
+    dailyUsage: [],
+  }
+}
+
 export default function StatisticsPage() {
   const { t, locale } = useTranslation()
   const { user } = useAuth()
+  const { resolvedTheme } = useTheme()
+  // Recharts renders axis ticks as SVG <text fill="...">; CSS variables don't
+  // resolve in the SVG fill attribute, so we pass concrete theme-aware colors.
+  const isDark = resolvedTheme === 'dark'
+  const axisColor = isDark ? '#cbd5e1' : '#475569'
+  const gridColor = isDark ? '#334155' : '#e2e8f0'
+  const tooltipBg = isDark ? '#1e293b' : '#ffffff'
+  const tooltipBorder = isDark ? '#334155' : '#e2e8f0'
+  const tooltipText = isDark ? '#f1f5f9' : '#0f172a'
+  // Unfiltered dashboards — the source of truth, kept fresh by the initial load
+  // and realtime updates. Used to discover which apps exist (for the category
+  // dropdown's app-id resolution) regardless of which category is selected.
   const [childrenData, setChildrenData] = useState<ChildData[]>([])
+  // Dashboards scoped server-side to the selected category's app ids. Empty/absent
+  // when selectedCategory is 'all', in which case childrenData is used directly.
+  const [categoryDashboards, setCategoryDashboards] = useState<Record<string, DashboardResponse | null>>({})
   const [selectedChild, setSelectedChild] = useState<string>('all')
   const [selectedCategory, setSelectedCategory] = useState<AppCategory | 'all'>('all')
   const [appNames, setAppNames] = useState<Record<string, { name: string; color: string; category: AppCategory }>>({})
   const [isLoading, setIsLoading] = useState(true)
-  // Metrics now arrive embedded in each dashboard activity, so expanding a row is
-  // a pure UI toggle — no extra request needed.
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-
-  const toggleMetrics = (activityId: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(activityId)) next.delete(activityId)
-      else next.add(activityId)
-      return next
-    })
-  }
+  // Accent color for the activity heatmap — the selected child's own colorScheme
+  // preference when one child is picked, otherwise the default scheme's accent.
+  const [heatmapColor, setHeatmapColor] = useState(COLOR_SCHEMES[0].accentText)
 
   useEffect(() => {
     if (!user) return
@@ -109,9 +122,9 @@ export default function StatisticsPage() {
           Array.from(appIds).map(async id => {
             const app = await apiGetApp(id).catch(() => null)
             names[id] = {
-              name: app?.name ?? 'Unknown',
-              color: app?.color ?? '#4F46E5',
-              category: (app?.category as AppCategory) ?? 'education',
+              name: app?.name || t('common.unknown'),
+              color: app?.color || DEFAULT_APP_COLOR,
+              category: (app?.category as AppCategory) || 'education',
             }
           })
         )
@@ -125,8 +138,52 @@ export default function StatisticsPage() {
     load()
   }, [user?.id])
 
+  // App ids belonging to the selected category, resolved from the apps we've
+  // discovered so far. This is the dimension the backend actually filters on —
+  // it doesn't know about app categories, so the frontend resolves the category
+  // to a concrete app-id set (via AppRegistry data already fetched above) and
+  // passes that through, instead of fetching everything and filtering client-side.
+  const categoryAppIds = useMemo(() => {
+    if (selectedCategory === 'all') return null
+    return Object.entries(appNames)
+      .filter(([, info]) => info.category === selectedCategory)
+      .map(([id]) => id)
+  }, [selectedCategory, appNames])
+
+  // Re-fetch every child's dashboard scoped to the selected category whenever it
+  // changes, so usage time, recent activities, avg progress and weekly consistency
+  // are all computed server-side over the same filtered app set — not just the
+  // recent-activity list.
+  useEffect(() => {
+    if (categoryAppIds === null || childrenData.length === 0) {
+      setCategoryDashboards({})
+      return
+    }
+    // No app belongs to this category → show empty stats directly. We can't send
+    // an empty `applicationIds` query (an empty query value is indistinguishable
+    // from "absent" over HTTP, which the backend reads as "no filter"), so we
+    // synthesize empty dashboards client-side instead of calling the API.
+    if (categoryAppIds.length === 0) {
+      setCategoryDashboards(
+        Object.fromEntries(childrenData.map(d => [d.profile.id, emptyDashboard(d.profile.id)]))
+      )
+      return
+    }
+    let active = true
+    Promise.all(
+      childrenData.map(async d => [
+        d.profile.id,
+        await apiGetDashboard(d.profile.id, categoryAppIds).catch(() => null),
+      ] as const)
+    ).then(entries => {
+      if (active) setCategoryDashboards(Object.fromEntries(entries))
+    })
+    return () => { active = false }
+  }, [categoryAppIds, childrenData])
+
   // Realtime: when a child reports usage (time / activity / live step progress),
-  // re-fetch just that child's dashboard so metrics and time update instantly.
+  // re-fetch just that child's dashboard so metrics and time update instantly —
+  // both the unfiltered base and, if a category filter is active, the filtered view.
   const refetchChild = useCallback(async (childId: string) => {
     const dashboard = await apiGetDashboard(childId).catch(() => null)
     setChildrenData(prev =>
@@ -136,68 +193,113 @@ export default function StatisticsPage() {
 
   useUsageRealtime(childrenData.map(d => d.profile.id), refetchChild)
 
-  // Filtered dashboards based on selected child
-  const filteredDashboards = useMemo(() => {
-    if (selectedChild === 'all') return childrenData.map(d => d.dashboard).filter(Boolean) as DashboardResponse[]
-    return childrenData
-      .filter(d => d.profile.id === selectedChild)
-      .map(d => d.dashboard)
-      .filter(Boolean) as DashboardResponse[]
-  }, [childrenData, selectedChild])
+  // Dashboards to actually display: the category-filtered ones when a category is
+  // selected, otherwise the unfiltered base data — scoped to the selected child.
+  const displayDashboards = useMemo(() => {
+    const dashboardFor = (childId: string) =>
+      selectedCategory === 'all'
+        ? childrenData.find(d => d.profile.id === childId)?.dashboard ?? null
+        : categoryDashboards[childId] ?? null
 
-  // Per-app usage entries that match the selected category filter.
-  const matchesCategory = (appId: string) =>
-    selectedCategory === 'all' || appNames[appId]?.category === selectedCategory
+    const childIds = selectedChild === 'all'
+      ? childrenData.map(d => d.profile.id)
+      : [selectedChild]
+
+    return childIds.map(dashboardFor).filter(Boolean) as DashboardResponse[]
+  }, [childrenData, categoryDashboards, selectedChild, selectedCategory])
+
+  // Union of active days across the displayed dashboard(s), for the heatmap.
+  const activeDays = useMemo(
+    () => Array.from(new Set(displayDashboards.flatMap(d => d.activeDays))),
+    [displayDashboards]
+  )
+
+  // Use the selected child's own colorScheme for the heatmap accent so it
+  // matches their accessibility preferences; fall back to the default scheme
+  // when viewing all children (no single preference set applies).
+  useEffect(() => {
+    if (selectedChild === 'all') {
+      setHeatmapColor(COLOR_SCHEMES[0].accentText)
+      return
+    }
+    let active = true
+    apiGetPreferences(selectedChild)
+      .then(record => {
+        if (!active) return
+        const prefs = recordToPrefs(record)
+        setHeatmapColor(COLOR_SCHEMES.find(c => c.value === prefs.colorScheme)?.accentText ?? COLOR_SCHEMES[0].accentText)
+      })
+      .catch(() => { if (active) setHeatmapColor(COLOR_SCHEMES[0].accentText) })
+    return () => { active = false }
+  }, [selectedChild])
 
   const stats = useMemo(() => {
-    const perAppFiltered = filteredDashboards.flatMap(d => d.perApp.filter(a => matchesCategory(a.applicationId)))
-    const totalMinutes = perAppFiltered.reduce((s, a) => s + a.totalMinutes, 0)
-    const totalSessions = perAppFiltered.reduce((s, a) => s + a.sessionCount, 0)
-    const totalActivities = selectedCategory === 'all'
-      ? filteredDashboards.reduce((s, d) => s + d.activityCount, 0)
-      : filteredDashboards.reduce(
-          (s, d) => s + d.recentActivities.filter(a => matchesCategory(a.applicationId)).length, 0
-        )
+    const totalMinutes = displayDashboards.reduce((s, d) => s + d.totalUsageMinutes, 0)
+    const totalSessions = displayDashboards.reduce(
+      (s, d) => s + d.perApp.reduce((ss, a) => ss + a.sessionCount, 0), 0
+    )
+    const totalActivities = displayDashboards.reduce((s, d) => s + d.activityCount, 0)
     return { totalMinutes, totalActivities, totalSessions }
-  }, [filteredDashboards, selectedCategory, appNames])
+  }, [displayDashboards])
 
   // Real step-level progress when the backend reports it (avg of completed/total
   // sub-steps across activities), averaged over the selected children. Falls back
   // to the old "share of apps used" proxy only when no activity reported steps yet.
+  const avgProgressIsReal = useMemo(
+    () => displayDashboards.some(d => d.avgProgressPercent != null),
+    [displayDashboards]
+  )
+
   const avgProgressPercent = useMemo(() => {
-    const reported = filteredDashboards
+    const reported = displayDashboards
       .map(d => d.avgProgressPercent)
       .filter((v): v is number => v != null)
     if (reported.length > 0) {
       return Math.round(reported.reduce((s, v) => s + v, 0) / reported.length)
     }
-    const perAppFiltered = filteredDashboards.flatMap(d => d.perApp.filter(a => matchesCategory(a.applicationId)))
-    if (perAppFiltered.length === 0) return 0
-    const usedCount = perAppFiltered.filter(a => a.totalMinutes > 0).length
-    return Math.round((usedCount / perAppFiltered.length) * 100)
-  }, [filteredDashboards, selectedCategory, appNames])
+    const perApp = displayDashboards.flatMap(d => d.perApp)
+    if (perApp.length === 0) return 0
+    const usedCount = perApp.filter(a => a.totalMinutes > 0).length
+    return Math.round((usedCount / perApp.length) * 100)
+  }, [displayDashboards])
+
+  // Share of the last 7 days with at least one completed activity, averaged
+  // across the selected children. Directly answers the advisor's request for
+  // a "consistency across days of the week" signal.
+  const weeklyConsistencyPercent = useMemo(() => {
+    const reported = displayDashboards
+      .map(d => d.weeklyConsistency)
+      .filter((v): v is number => v != null)
+    if (reported.length === 0) return null
+    return Math.round((reported.reduce((s, v) => s + v, 0) / reported.length) * 100)
+  }, [displayDashboards])
 
   // Usage by app (pie chart)
   const usageByApp = useMemo(() => {
     const grouped: Record<string, number> = {}
-    filteredDashboards.forEach(d =>
-      d.perApp.filter(a => matchesCategory(a.applicationId)).forEach(a => {
+    displayDashboards.forEach(d =>
+      d.perApp.forEach(a => {
         grouped[a.applicationId] = (grouped[a.applicationId] ?? 0) + a.totalMinutes
       })
     )
     return Object.entries(grouped)
       .map(([appId, value]) => ({
-        name: appNames[appId]?.name ?? 'Unknown',
+        name: appNames[appId]?.name ?? t('common.unknown'),
         value,
         color: appNames[appId]?.color ?? '#666',
       }))
       .sort((a, b) => b.value - a.value)
-  }, [filteredDashboards, appNames, selectedCategory])
+  }, [displayDashboards, appNames, t])
 
   // Per-app bar chart
   const appBarData = useMemo(() => {
     return usageByApp.map(a => ({ name: a.name.slice(0, 12), usage: a.value, color: a.color }))
   }, [usageByApp])
+
+  // Recharts can't draw a meaningful bar/pie when every value is zero (e.g. a
+  // child with activities logged but no recorded session duration yet) — show
+  // a clear empty state instead of a blank chart area.
+  const hasUsageData = usageByApp.some(a => a.value > 0)
 
   // Recent activity
   const recentActivities = useMemo(() => {
@@ -211,14 +313,14 @@ export default function StatisticsPage() {
       inProgress?: boolean
       metrics?: ActivityMetrics
     }> = []
-    filteredDashboards.forEach((d, i) => {
+    displayDashboards.forEach((d, i) => {
       const childProfile = selectedChild === 'all'
         ? childrenData.find(cd => cd.dashboard?.childId === d.childId)?.profile
         : childrenData.find(cd => cd.profile.id === selectedChild)?.profile
       const childName = childProfile
         ? `${childProfile.firstName} ${childProfile.lastName}`.trim()
-        : 'Unknown'
-      d.recentActivities.filter(a => matchesCategory(a.applicationId)).forEach((a, j) => {
+        : t('common.unknown')
+      d.recentActivities.forEach((a, j) => {
         acts.push({
           id: a.id ?? `${i}-${j}`,
           childName,
@@ -232,47 +334,14 @@ export default function StatisticsPage() {
       })
     })
     return acts.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 15)
-  }, [filteredDashboards, childrenData, selectedChild, selectedCategory, appNames])
-
-  const handleExport = () => {
-    const rows = [
-      [t('statistics.csvChild'), t('statistics.csvApp'), t('statistics.csvUsageMinutes'), t('statistics.csvSessions')],
-      ...usageByApp.map(a => {
-        const appId = Object.keys(appNames).find(id => appNames[id]?.name === a.name)
-        const sessions = filteredDashboards
-          .flatMap(d => d.perApp)
-          .filter(p => p.applicationId === appId)
-          .reduce((s, p) => s + p.sessionCount, 0)
-        return [
-          selectedChild === 'all' ? t('statistics.csvAllChildren') : (childrenData.find(cd => cd.profile.id === selectedChild)?.profile.firstName ?? ''),
-          a.name,
-          String(a.value),
-          String(sessions),
-        ]
-      }),
-    ]
-    const csv = rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `abilityhub-statistika-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success(t('statistics.exportSuccess'))
-  }
+  }, [displayDashboards, childrenData, selectedChild, t])
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={t('statistics.title')}
         description={t('statistics.subtitle')}
-      >
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="mr-2 h-4 w-4" />
-          {t('statistics.exportReport')}
-        </Button>
-      </PageHeader>
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -307,7 +376,7 @@ export default function StatisticsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -351,7 +420,23 @@ export default function StatisticsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{avgProgressPercent}%</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {t('statistics.avgProgressNote')}
+              {avgProgressIsReal ? t('statistics.avgProgressNote') : t('statistics.avgProgressNoteFallback')}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t('statistics.weeklyConsistency')}
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {weeklyConsistencyPercent != null ? `${weeklyConsistencyPercent}%` : '—'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {weeklyConsistencyPercent != null ? t('statistics.weeklyConsistencyNote') : t('statistics.weeklyConsistencyUnavailable')}
             </p>
           </CardContent>
         </Card>
@@ -360,166 +445,181 @@ export default function StatisticsPage() {
       {isLoading ? (
         <div className="h-64 bg-muted animate-pulse rounded-lg" />
       ) : (
-        <Tabs defaultValue="usage" className="space-y-6">
+        <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="usage">{t('statistics.usage')}</TabsTrigger>
-            <TabsTrigger value="activity">{t('statistics.activity')}</TabsTrigger>
+            <TabsTrigger value="overview">{t('statistics.overview')}</TabsTrigger>
             <TabsTrigger value="checkins">{t('statistics.parentEvaluations')}</TabsTrigger>
           </TabsList>
 
-          {/* Usage Tab */}
-          <TabsContent value="usage" className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
+          {/* Overview: usage charts + activity + heatmap in one balanced layout */}
+          <TabsContent value="overview">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Placed explicitly so each row's pair (chart|chart, activity|heatmap)
+                  shares the row height via the grid's default items-stretch. */}
+              <Card className="lg:col-span-2 lg:row-start-1">
                 <CardHeader>
                   <CardTitle className="text-lg">{t('statistics.usageByAppChart')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={appBarData}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="name" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                        <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--popover))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                          formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
-                        />
-                        <Bar dataKey="usage" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
-                          {appBarData.map((entry, index) => (
-                            <Cell key={index} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardHeader>
+                  <CardContent>
+                    {hasUsageData ? (
+                      <div className="h-[280px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={appBarData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 12 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 12 }} allowDecimals={false} />
+                            <Tooltip
+                              cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
+                              contentStyle={{
+                                backgroundColor: tooltipBg,
+                                border: `1px solid ${tooltipBorder}`,
+                                borderRadius: '8px',
+                                color: tooltipText,
+                              }}
+                              formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
+                            />
+                            <Bar dataKey="usage" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={64}>
+                              {appBarData.map((entry, index) => (
+                                <Cell key={index} fill={entry.color} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <EmptyState icon={BarChart3} title={t('statistics.noUsageYet')} description={t('statistics.noUsageYetDesc')} />
+                    )}
+                  </CardContent>
+                </Card>
 
-              <Card>
+                <Card className="lg:col-span-2 lg:row-start-2">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {recentActivities.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        {t('statistics.noActivities')}
+                      </p>
+                    ) : (
+                      <div className="max-h-[440px] space-y-4 overflow-y-auto pr-1">
+                        {recentActivities.map(activity => {
+                          const app = appNames[activity.appId]
+                          const action = activityTypeToAction(activity.type)
+                          // In-progress activities show a spinner, not the "completed" check.
+                          const Icon = activity.inProgress ? Loader2 : ACTIVITY_ICONS[action]
+                          const metrics = activity.metrics
+                          return (
+                            <div key={activity.id} className="pb-4 border-b last:border-0">
+                              <div className="flex w-full items-start gap-4 text-left">
+                                <div
+                                  className="flex h-10 w-10 items-center justify-center rounded-full shrink-0"
+                                  style={{ backgroundColor: (app?.color ?? '#666') + '20', color: app?.color ?? '#666' }}
+                                >
+                                  <Icon className={`h-5 w-5 ${activity.inProgress ? 'animate-spin' : ''}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium">{activity.childName}</span>
+                                    <Badge variant="secondary">{app?.name ?? t('common.unknown')}</Badge>
+                                    {activity.inProgress && (
+                                      <Badge className="bg-amber-500 hover:bg-amber-500 text-white animate-pulse">
+                                        {activity.metrics?.stepsTotal != null
+                                          ? t('statistics.inProgressStep', {
+                                              step: String(Math.min((activity.metrics.stepsCompleted ?? 0) + 1, activity.metrics.stepsTotal)),
+                                              total: String(activity.metrics.stepsTotal),
+                                            })
+                                          : t('statistics.inProgress')}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">{activity.detail}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {activity.occurredAt.toLocaleString(locale === 'bs' ? 'bs-BA' : 'en-US')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-3 ml-14 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                {metrics ? (
+                                  <>
+                                    <MetricBadge label={t('statistics.metrics.startedViaAction')} value={metrics.startedViaAction} notAvailableLabel={t('statistics.notAvailable')} />
+                                    <MetricBadge label={t('statistics.metrics.completedViaAction')} value={metrics.completedViaAction} notAvailableLabel={t('statistics.notAvailable')} />
+                                    <MetricBadge
+                                      label={t('statistics.metrics.steps')}
+                                      value={metrics.stepsTotal != null ? `${metrics.stepsCompleted}/${metrics.stepsTotal}` : undefined}
+                                      notAvailableLabel={t('statistics.notAvailable')}
+                                    />
+                                    <MetricBadge
+                                      label={t('statistics.metrics.duration')}
+                                      value={metrics.durationSeconds != null ? formatShortDuration(metrics.durationSeconds) : undefined}
+                                      notAvailableLabel={t('statistics.notAvailable')}
+                                    />
+                                    <MetricBadge label={t('statistics.metrics.hintsShown')} value={metrics.hintsShown} notAvailableLabel={t('statistics.notAvailable')} />
+                                    <MetricBadge label={t('statistics.metrics.errors')} value={metrics.errorsCount} notAvailableLabel={t('statistics.notAvailable')} />
+                                  </>
+                                ) : (
+                                  <p className="col-span-full text-muted-foreground">{t('statistics.notAvailableForApp')}</p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+              <Card className="lg:col-start-3 lg:row-start-1">
                 <CardHeader>
                   <CardTitle className="text-lg">{t('statistics.shareByApp')}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={usageByApp}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {usageByApp.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'hsl(var(--popover))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px',
-                          }}
-                          formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                <CardContent className="flex h-full items-center">
+                  {hasUsageData ? (
+                    <div className="h-[260px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={usageByApp}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={55}
+                              outerRadius={90}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              {usageByApp.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: tooltipBg,
+                                border: `1px solid ${tooltipBorder}`,
+                                borderRadius: '8px',
+                                color: tooltipText,
+                              }}
+                              formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
+                            />
+                            <Legend wrapperStyle={{ color: axisColor, fontSize: 12 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <EmptyState icon={BarChart3} title={t('statistics.noUsageYet')} description={t('statistics.noUsageYetDesc')} />
+                    )}
+                  </CardContent>
+                </Card>
+
+              <Card className="flex flex-col lg:col-start-3 lg:row-start-2">
+                <CardHeader>
+                  <CardTitle className="text-lg">{t('statistics.activityHeatmap')}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-1 flex-col justify-center">
+                  <ActivityHeatmap activeDays={activeDays} color={heatmapColor} emptyColor={isDark ? '#3a4257' : '#dbe1ea'} />
+                  <p className="mt-3 text-xs text-muted-foreground">{t('statistics.activityHeatmapNote')}</p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          {/* Activity Tab */}
-          <TabsContent value="activity">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentActivities.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    {t('statistics.noActivities')}
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {recentActivities.map(activity => {
-                      const app = appNames[activity.appId]
-                      const action = activityTypeToAction(activity.type)
-                      // In-progress activities show a spinner, not the "completed" check.
-                      const Icon = activity.inProgress ? Loader2 : actionIcons[action]
-                      const metrics = activity.metrics
-                      const isExpanded = expandedIds.has(activity.id)
-                      return (
-                        <div key={activity.id} className="pb-4 border-b last:border-0">
-                          <button
-                            type="button"
-                            onClick={() => toggleMetrics(activity.id)}
-                            className="flex w-full items-start gap-4 text-left"
-                          >
-                            <div
-                              className="flex h-10 w-10 items-center justify-center rounded-full shrink-0"
-                              style={{ backgroundColor: (app?.color ?? '#666') + '20', color: app?.color ?? '#666' }}
-                            >
-                              <Icon className={`h-5 w-5 ${activity.inProgress ? 'animate-spin' : ''}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium">{activity.childName}</span>
-                                <Badge variant="secondary">{app?.name ?? 'Unknown'}</Badge>
-                                {activity.inProgress && (
-                                  <Badge className="bg-amber-500 hover:bg-amber-500 text-white animate-pulse">
-                                    {activity.metrics?.stepsTotal != null
-                                      ? `U toku • korak ${Math.min((activity.metrics.stepsCompleted ?? 0) + 1, activity.metrics.stepsTotal)}/${activity.metrics.stepsTotal}`
-                                      : 'U toku'}
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1">{activity.detail}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {activity.occurredAt.toLocaleString(locale === 'bs' ? 'bs-BA' : 'en-US')}
-                              </p>
-                            </div>
-                          </button>
-                          {isExpanded && (
-                            <div className="mt-3 ml-14 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                              {metrics ? (
-                                <>
-                                  <MetricBadge label={t('statistics.metrics.startedViaAction')} value={metrics.startedViaAction} notAvailableLabel={t('statistics.notAvailable')} />
-                                  <MetricBadge label={t('statistics.metrics.completedViaAction')} value={metrics.completedViaAction} notAvailableLabel={t('statistics.notAvailable')} />
-                                  <MetricBadge
-                                    label={t('statistics.metrics.steps')}
-                                    value={metrics.stepsTotal != null ? `${metrics.stepsCompleted}/${metrics.stepsTotal}` : undefined}
-                                    notAvailableLabel={t('statistics.notAvailable')}
-                                  />
-                                  <MetricBadge
-                                    label={t('statistics.metrics.duration')}
-                                    value={metrics.durationSeconds != null ? formatDuration(Math.round(metrics.durationSeconds / 60)) : undefined}
-                                    notAvailableLabel={t('statistics.notAvailable')}
-                                  />
-                                  <MetricBadge label={t('statistics.metrics.hintsShown')} value={metrics.hintsShown} notAvailableLabel={t('statistics.notAvailable')} />
-                                  <MetricBadge label={t('statistics.metrics.errors')} value={metrics.errorsCount} notAvailableLabel={t('statistics.notAvailable')} />
-                                </>
-                              ) : (
-                                <p className="col-span-full text-muted-foreground">{t('statistics.notAvailableForApp')}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Weekly parent evaluation tab */}

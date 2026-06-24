@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
-import { apiGetRestriction, apiSetRestriction } from '@/lib/api'
+import { apiGetRestriction, apiSetRestriction, apiGetLimitStatus, type LimitStatusResponse } from '@/lib/api'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
@@ -44,17 +44,22 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
   const [isBlocked, setIsBlocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [limitStatus, setLimitStatus] = useState<LimitStatusResponse | null>(null)
 
   useEffect(() => {
     if (!open) return
     let active = true
     setLoading(true)
-    apiGetRestriction(childId, appId)
-      .then(r => {
+    Promise.all([
+      apiGetRestriction(childId, appId),
+      apiGetLimitStatus(childId, appId).catch(() => null),
+    ])
+      .then(([r, status]) => {
         if (!active) return
         setHasTimeLimit(r.dailyTimeLimitMinutes != null)
         setTimeLimit(r.dailyTimeLimitMinutes ?? DEFAULT_LIMIT)
         setIsBlocked(r.isBlocked)
+        setLimitStatus(status)
       })
       .catch(() => {})
       .finally(() => { if (active) setLoading(false) })
@@ -92,6 +97,17 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
           <div className="h-24 animate-pulse rounded-lg bg-muted" />
         ) : (
           <div className="space-y-4 py-2">
+            {limitStatus && (
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                <span className="text-muted-foreground">{t('timeLimit.usedToday')}: </span>
+                <span className="font-medium">
+                  {limitStatus.usedTodayMinutes} {limitStatus.dailyLimitMinutes != null ? `/ ${limitStatus.dailyLimitMinutes}` : ''} {t('common.minutesShort')}
+                </span>
+                {limitStatus.limitReached && (
+                  <span className="ml-2 font-medium text-destructive">{t('timeLimit.limitReached')}</span>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>{t('applications.timeLimit')}</Label>
@@ -110,7 +126,7 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>{t('timeLimit.dailyLimitMinutes')}</Label>
-                  <span className="text-sm font-medium">{timeLimit} min</span>
+                  <span className="text-sm font-medium">{timeLimit} {t('common.minutesShort')}</span>
                 </div>
                 <Slider
                   value={[timeLimit]}
@@ -121,8 +137,8 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
                   disabled={saving}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{MIN_LIMIT} min</span>
-                  <span>{MAX_LIMIT} min</span>
+                  <span>{MIN_LIMIT} {t('common.minutesShort')}</span>
+                  <span>{MAX_LIMIT} {t('common.minutesShort')}</span>
                 </div>
               </div>
             )}

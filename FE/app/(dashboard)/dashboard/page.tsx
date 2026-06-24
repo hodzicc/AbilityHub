@@ -136,7 +136,15 @@ export default function DashboardPage() {
         childProfiles.map(c => apiGetDashboard(c.id).catch(() => null as DashboardResponse | null))
       )
 
-      const todayUsage = dashboards.reduce((sum, d) => sum + (d?.totalUsageMinutes ?? 0), 0)
+      // Real per-day usage (last 7 days), summed across children. Each child's
+      // dailyUsage is aligned oldest→newest, so we add element-wise.
+      const perDayMinutes = Array(7).fill(0) as number[]
+      dashboards.forEach(d => {
+        d?.dailyUsage?.forEach((day, i) => {
+          if (i < perDayMinutes.length) perDayMinutes[i] += day.minutes
+        })
+      })
+      const todayUsage = perDayMinutes[perDayMinutes.length - 1] ?? 0
 
       // Real step-level progress when reported by the backend (avg of completed/
       // total sub-steps), averaged across children. Falls back to the "share of
@@ -151,12 +159,12 @@ export default function DashboardPage() {
           ? 0
           : Math.round((perAppEntries.filter(a => a.totalMinutes > 0).length / perAppEntries.length) * 100)
 
-      const last7 = Array.from({ length: 7 }, (_, i) => {
+      const last7 = perDayMinutes.map((usage, i) => {
         const d = new Date()
         d.setDate(d.getDate() - (6 - i))
         return {
           name: d.toLocaleDateString(locale === 'bs' ? 'bs-BA' : 'en-US', { weekday: 'short' }),
-          usage: i === 6 ? todayUsage : 0,
+          usage,
         }
       })
 
@@ -164,7 +172,7 @@ export default function DashboardPage() {
         childrenCount: childProfiles.length,
         activeAppsCount: appsData.filter(a => a.isActive).length,
         todayUsageMinutes: todayUsage,
-        avgProgress: 0,
+        avgProgress,
         weeklyData: last7,
       })
     }

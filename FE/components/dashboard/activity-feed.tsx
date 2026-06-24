@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { bs, enUS } from 'date-fns/locale'
 import { apiGetChildren, apiGetDashboard, apiGetApp } from '@/lib/api'
 import { ACTIVITY_COLORS, ACTIVITY_ICONS, activityTypeToAction, type ActivityAction } from '@/lib/activity'
+import { DEFAULT_APP_COLOR } from '@/lib/constants'
 
 interface FeedItem {
   id: string
@@ -45,8 +46,8 @@ export function ActivityFeed() {
             if (!appCache[activity.applicationId]) {
               const appData = await apiGetApp(activity.applicationId).catch(() => null)
               appCache[activity.applicationId] = {
-                name: appData?.name ?? 'Unknown',
-                color: appData?.color ?? '#4F46E5',
+                name: appData?.name ?? t('common.unknown'),
+                color: appData?.color ?? DEFAULT_APP_COLOR,
               }
             }
             const app = appCache[activity.applicationId]

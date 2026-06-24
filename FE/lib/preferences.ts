@@ -13,7 +13,7 @@ export const FONT_SIZES: { value: FontSize; label: string; size: string }[] = [
 
 // Font choices: a default rounded sans for friendliness, and a high-legibility
 // option (wider letterforms, simple shapes) for readers with cognitive
-// accessibility needs. See ACCESSIBILITY_RESEARCH.md for sourcing.
+// accessibility needs (rationale shown to users via i18n's fontFamilyReasons).
 // The 'rounded' and 'legible' stacks reference CSS variables set by next/font
 // in app/layout.tsx (--font-nunito, --font-atkinson) — without that, the named
 // fonts aren't actually loaded in the browser and selection has no visible effect.
@@ -23,7 +23,7 @@ export const FONT_FAMILIES: { value: FontFamily; label: string; stack: string }[
   { value: 'legible',  label: 'Visoka čitljivost (Atkinson)', stack: 'var(--font-atkinson), var(--font-sans, ui-sans-serif), sans-serif' },
 ]
 
-// Color scheme palette — see ACCESSIBILITY_RESEARCH.md for sourcing.
+// Color scheme palette (rationale shown to users via i18n's colorSchemeReasons).
 // "high-contrast" uses a black-on-yellow pairing rather than a plain
 // black/white inversion; "default", "pastel", and "warm" are general
 // preference alternatives.
@@ -79,24 +79,4 @@ export function recordToPrefs(
 export function resolvePrefs(global: UIPreferences, override: Record<string, string>): UIPreferences {
   if (!override || Object.keys(override).length === 0) return global
   return recordToPrefs({ ...prefsToRecord(global), ...override }, global)
-}
-
-/** Human-readable label for a single preference key's current value — used in summary tables. */
-export function labelFor(key: keyof UIPreferences, prefs: UIPreferences): string {
-  switch (key) {
-    case 'fontSize':
-      return FONT_SIZES.find(f => f.value === prefs.fontSize)?.label ?? prefs.fontSize
-    case 'colorScheme':
-      return COLOR_SCHEMES.find(c => c.value === prefs.colorScheme)?.label ?? prefs.colorScheme
-    case 'fontFamily':
-      return FONT_FAMILIES.find(f => f.value === prefs.fontFamily)?.label ?? prefs.fontFamily
-    case 'reducedMotion':
-      return prefs.reducedMotion ? 'Uključeno' : 'Isključeno'
-    case 'highContrast':
-      return prefs.highContrast ? 'Uključeno' : 'Isključeno'
-    case 'soundEnabled':
-      return prefs.soundEnabled ? 'Uključeno' : 'Isključeno'
-    default:
-      return ''
-  }
 }

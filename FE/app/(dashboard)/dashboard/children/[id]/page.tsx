@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AppPreferencesList } from '@/components/preferences'
-import { AssignAppsDialog, TimeLimitDialog, ChildActivityFeed } from '@/components/children'
+import { AssignAppsDialog, TimeLimitDialog, ChildActivityFeed, QrPairingCard } from '@/components/children'
 import { calculateAge, formatDuration, cn } from '@/lib/utils'
 import { DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
 import { FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
@@ -35,23 +35,9 @@ import {
   apiGetRestriction,
   apiGetPreferences,
   type DashboardResponse,
-  type ApplicationResponse,
 } from '@/lib/api'
+import { responseToApp } from '@/lib/applications'
 import { toast } from 'sonner'
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function responseToApp(r: ApplicationResponse): Application {
-  let features: string[] = []
-  try { features = JSON.parse(r.featuresJson) } catch {}
-  return {
-    id: r.id, key: r.key, name: r.name, description: r.description,
-    category: (r.category as Application['category']) || 'education',
-    icon: r.iconName || 'AppWindow', color: r.color || '#4F46E5',
-    minAge: r.minAge, maxAge: r.maxAge, features, isActive: r.isActive,
-    platform: (r.platform?.toLowerCase() as 'web' | 'mobile' | 'hybrid') || 'mobile',
-  }
-}
 
 // ── main page ──────────────────────────────────────────────────────────────
 
@@ -230,6 +216,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           <TabsTrigger value="apps">{t('children.assignedApps')}</TabsTrigger>
           <TabsTrigger value="progress">{t('children.progress')}</TabsTrigger>
           {!isAdmin && <TabsTrigger value="prefs">{t('children.preferencesTab')}</TabsTrigger>}
+          {!isAdmin && <TabsTrigger value="login">{t('qrPairing.tabLabel')}</TabsTrigger>}
         </TabsList>
 
         {/* Apps tab */}
@@ -380,6 +367,13 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
           ) : (
             <p className="text-sm text-muted-foreground">{t('children.noAppsAssigned')}</p>
           )}
+        </TabsContent>
+        )}
+
+        {/* QR pairing for child mobile login (parent only) */}
+        {!isAdmin && (
+        <TabsContent value="login" className="space-y-6">
+          <QrPairingCard childId={id} childName={child?.name ?? ''} />
         </TabsContent>
         )}
       </Tabs>

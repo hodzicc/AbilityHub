@@ -24,7 +24,6 @@ public class RestrictionsController : ControllerBase
         _notifier = notifier;
     }
 
-    // GET: the usage restriction for a (child, app).
     [HttpGet]
     public async Task<IActionResult> Get(Guid childId, Guid appId)
     {
@@ -32,7 +31,6 @@ public class RestrictionsController : ControllerBase
         return Ok(await _settings.GetRestrictionAsync(childId, appId));
     }
 
-    // PUT: set the time limit / block flag (parent or admin).
     [HttpPut]
     public async Task<IActionResult> Set(Guid childId, Guid appId, [FromBody] RestrictionRequest request)
     {

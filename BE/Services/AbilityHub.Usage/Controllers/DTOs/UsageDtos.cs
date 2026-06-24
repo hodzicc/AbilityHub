@@ -93,6 +93,25 @@ public class DashboardResponse
     public List<AppUsageDto> PerApp { get; set; } = new();
     public List<RecentActivityDto> RecentActivities { get; set; } = new();
     public List<string> Recommendations { get; set; } = new();
+
+    /// <summary>
+    /// Distinct UTC dates in the last 90 days on which the child completed any
+    /// activity — backs the frontend's activity heatmap calendar.
+    /// </summary>
+    public List<DateTime> ActiveDays { get; set; } = new();
+
+    /// <summary>
+    /// Usage minutes per day for the last 7 days (oldest → newest, every day present,
+    /// gaps filled with 0) — backs the dashboard's weekly bar chart.
+    /// </summary>
+    public List<DailyUsageDto> DailyUsage { get; set; } = new();
+}
+
+/// <summary>Usage minutes on a single UTC calendar day.</summary>
+public class DailyUsageDto
+{
+    public DateTime Date { get; set; }
+    public long Minutes { get; set; }
 }
 
 /// <summary>An activity as surfaced on the dashboard, carrying its id, owning app and metrics.</summary>

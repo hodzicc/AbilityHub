@@ -8,6 +8,7 @@ import { useTranslation } from '@/components/providers'
 import type { Application } from '@/lib/types'
 import { ArrowRight, Users, Pencil, Power, PowerOff } from 'lucide-react'
 import { getAppIcon } from '@/lib/app-icons'
+import { DEFAULT_APP_COLOR } from '@/lib/constants'
 
 interface AppCardProps {
   app: Application
@@ -20,7 +21,7 @@ interface AppCardProps {
 export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onToggleActive }: AppCardProps) {
   const { t } = useTranslation()
   const Icon = getAppIcon(app.icon)
-  const color = app.color || '#6366f1'
+  const color = app.color || DEFAULT_APP_COLOR
 
   return (
     <Card className="group overflow-hidden border-0 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">

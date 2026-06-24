@@ -11,6 +11,7 @@ import { AppWindow } from 'lucide-react'
 import { ACTIVITY_COLORS, ACTIVITY_ICONS, activityTypeToAction } from '@/lib/activity'
 import type { RecentActivityDto } from '@/lib/api'
 import type { Application } from '@/lib/types'
+import { DEFAULT_APP_COLOR } from '@/lib/constants'
 
 interface ChildActivityFeedProps {
   activities: RecentActivityDto[]
@@ -55,7 +56,7 @@ export function ChildActivityFeed({ activities, apps }: ChildActivityFeedProps) 
                 const action = activityTypeToAction(activity.activityType)
                 const Icon = ACTIVITY_ICONS[action]
                 const app = appById[activity.applicationId]
-                const color = app?.color ?? '#4F46E5'
+                const color = app?.color ?? DEFAULT_APP_COLOR
                 return (
                   <div
                     key={`${activity.applicationId}-${activity.occurredAt}-${activity.activityType}`}

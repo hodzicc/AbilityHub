@@ -10,23 +10,10 @@ import type { Application, AppCategory } from '@/lib/types'
 import { Search, AppWindow, Plus } from 'lucide-react'
 import { apiGetApps, apiGetChildren, apiGetChildApps, apiUpdateApp, apiDeactivateApp, type ApplicationResponse } from '@/lib/api'
 import { APP_CATEGORIES } from '@/lib/constants'
+import { responseToApp } from '@/lib/applications'
 import { toast } from 'sonner'
 
 const categories: (AppCategory | 'all')[] = ['all', ...APP_CATEGORIES.map(c => c.value)]
-
-function responseToApp(r: ApplicationResponse): Application {
-  let features: string[] = []
-  try { features = JSON.parse(r.featuresJson) } catch {}
-  return {
-    id: r.id, key: r.key, name: r.name, description: r.description,
-    category: (r.category as AppCategory) || 'education',
-    icon: r.iconName || 'AppWindow', color: r.color || '#4F46E5',
-    minAge: r.minAge, maxAge: r.maxAge, features,
-    isActive: r.isActive,
-    platform: (r.platform?.toLowerCase() as 'web' | 'mobile' | 'hybrid') || 'mobile',
-    dataFormat: r.dataFormat, version: r.version,
-  }
-}
 
 export default function ApplicationsPage() {
   const { t } = useTranslation()

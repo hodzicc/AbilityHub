@@ -10,6 +10,8 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
 {
     private const int RecentActivityLimit = 20;
     private const int ConsistencyWindowDays = 7;
+    private const int ActivityHeatmapWindowDays = 90;
+    private const int DailyUsageWindowDays = 7;
 
     private readonly IUsageRepository _repository = repository;
     private readonly ISettingsServiceClient _settingsClient = settingsClient;
@@ -63,29 +65,51 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
         }
     }
 
-    public async Task<DashboardResponse> GetDashboardAsync(Guid childId, string? activityType = null)
+    public async Task<DashboardResponse> GetDashboardAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null)
     {
-        var filter = string.IsNullOrWhiteSpace(activityType) ? null : activityType;
-
-        var perApp = await _repository.GetPerAppAggregatesAsync(childId);
-        var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, filter);
-        var activityCount = await _repository.GetActivityCountAsync(childId, filter);
-        var stepCompletions = await _repository.GetStepCompletionsAsync(childId, filter);
+        var perApp = await _repository.GetPerAppAggregatesAsync(childId, applicationIds);
+        var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, applicationIds);
+        var activityCount = await _repository.GetActivityCountAsync(childId, applicationIds);
+        var stepCompletions = await _repository.GetStepCompletionsAsync(childId, applicationIds);
         var activeDays = await _repository.GetActiveDaysSinceAsync(
-            childId, DateTime.UtcNow.Date.AddDays(-(ConsistencyWindowDays - 1)), filter);
+            childId, DateTime.UtcNow.Date.AddDays(-(ConsistencyWindowDays - 1)), applicationIds);
+        var heatmapDays = await _repository.GetActiveDaysSinceAsync(
+            childId, DateTime.UtcNow.Date.AddDays(-(ActivityHeatmapWindowDays - 1)), applicationIds);
+        var dailyUsage = await _repository.GetDailyUsageSinceAsync(
+            childId, DateTime.UtcNow.Date.AddDays(-(DailyUsageWindowDays - 1)), applicationIds);
 
         return new DashboardResponse
         {
             ChildId = childId,
             GeneratedAt = DateTime.UtcNow,
-            TotalUsageMinutes = perApp.Sum(a => a.TotalSeconds) / 60,
+            // Round up so any nonzero usage shows as at least 1 minute (matches AppUsageDto.TotalMinutes).
+            TotalUsageMinutes = (perApp.Sum(a => a.TotalSeconds) + 59) / 60,
             ActivityCount = activityCount,
             AvgProgressPercent = ComputeAvgProgressPercent(stepCompletions),
             WeeklyConsistency = ComputeWeeklyConsistency(activeDays),
             PerApp = _mapper.Map<List<AppUsageDto>>(perApp.OrderByDescending(a => a.TotalSeconds)),
             RecentActivities = _mapper.Map<List<RecentActivityDto>>(recent),
-            Recommendations = BuildRecommendations(perApp, recent)
+            Recommendations = BuildRecommendations(perApp, recent),
+            ActiveDays = heatmapDays.ToList(),
+            DailyUsage = BuildDailyUsage(dailyUsage)
         };
+    }
+
+    // The last 7 days, oldest → newest, every day present (gaps filled with 0),
+    // each day's seconds rounded up to whole minutes. Gives the dashboard a real
+    // per-day bar chart instead of a single "today" bar.
+    private static List<DailyUsageDto> BuildDailyUsage(IReadOnlyList<DailyUsage> reported)
+    {
+        var byDate = reported.ToDictionary(d => d.Date.Date, d => d.TotalSeconds);
+        var today = DateTime.UtcNow.Date;
+        var result = new List<DailyUsageDto>(DailyUsageWindowDays);
+        for (var i = DailyUsageWindowDays - 1; i >= 0; i--)
+        {
+            var date = today.AddDays(-i);
+            var seconds = byDate.TryGetValue(date, out var s) ? s : 0;
+            result.Add(new DailyUsageDto { Date = date, Minutes = (seconds + 59) / 60 });
+        }
+        return result;
     }
 
     // Average of per-activity step-completion ratios, as a 0–100 percentage. This is

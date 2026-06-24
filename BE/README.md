@@ -18,9 +18,11 @@ statistics. Built as .NET 9 microservices behind an API gateway.
         └─ UserRegistered ─▶ (RabbitMQ / MassTransit)
 ```
 
-- **Auth** — identity provider: credentials, login/refresh/logout, JWT issuing, user creation. Owns `AbilityHub_Auth`.
-- **Users** — user profiles, built from `UserRegistered` events. Owns `AbilityHub_Users`.
-- **AppRegistry / Settings / Usage** — scaffolds for upcoming phases.
+- **Auth** — identity provider: credentials, login/refresh/logout, JWT issuing, user creation, QR pairing tokens for child mobile login. Owns `AbilityHub_Auth`.
+- **Users** — user profiles, built from `UserRegistered` events; parent↔child guardian links. Owns `AbilityHub_Users`.
+- **AppRegistry** — application catalog and child↔app assignments. Owns `AbilityHub_AppRegistry`.
+- **Settings** — per-child and per-app UI preferences, daily time-limit / block restrictions. Owns `AbilityHub_Settings`.
+- **Usage** — usage sessions, per-activity accessibility metrics, dashboards, weekly parent check-ins. Owns `AbilityHub_Usage`.
 - **Gateway** — single entry point (YARP), validates JWTs at the edge, adds correlation ids.
 - **Infrastructure** — SQL Server + RabbitMQ.
 
@@ -129,8 +131,10 @@ curl -X POST http://localhost:8080/api/usage/report \
   -H "Content-Type: application/json" \
   -d '{"applicationId":"<appId>","activities":[{"activityType":"daily-task","name":"Brush teeth","occurredAt":"2026-06-20T08:00:00Z","metrics":{"startedViaAction":true,"completedViaAction":true,"stepsCompleted":4,"stepsTotal":5,"durationSeconds":132,"hintsShown":1,"errorsCount":0}}]}'
 
-# Dashboard filtered to one activity type (statistics filtering)
-curl "http://localhost:8080/api/usage/children/<childId>/dashboard?activityType=daily-task" \
+# Dashboard filtered to one set of applications (statistics filtering — the frontend
+# resolves an app-category filter to this id set itself, since Usage doesn't know
+# about app categories; an empty value returns nothing for that set)
+curl "http://localhost:8080/api/usage/children/<childId>/dashboard?applicationIds=<appId1>,<appId2>" \
   -H "Authorization: Bearer <parentAccessToken>"
 
 # Submit / read a weekly parent evaluation (guardian or admin)
@@ -153,9 +157,14 @@ curl -X POST http://localhost:8080/api/auth/pairing/exchange \
 
 ## Running locally (without Docker)
 
+Start the infrastructure containers, then each service:
+
+```bash
+docker compose up -d sqlserver rabbitmq
+```
+
 The JWT signing key is **not** stored in committed config. For local F5/`dotnet run`,
-set it via user-secrets in each service that needs it (Auth, Users) — and run SQL Server
-and RabbitMQ (e.g. `docker compose up sqlserver rabbitmq`):
+set it via user-secrets in each service that needs it (Auth, Users):
 
 ```bash
 dotnet user-secrets --project Services/AbilityHub.Auth  set "Jwt:Key" "<your-dev-key>"
@@ -164,6 +173,36 @@ dotnet user-secrets --project Services/AbilityHub.Users set "Jwt:Key" "<your-dev
 
 Use the same key in all services so tokens validate across them. In containers the key
 comes from the `JWT_KEY` environment variable (see `docker-compose.yml` / `.env`).
+
+Then, from `BE/`, start every service in its own terminal (each applies its own EF Core
+migrations and seed data on startup):
+
+```bash
+dotnet run --project Services/AbilityHub.Auth
+dotnet run --project Services/AbilityHub.Users
+dotnet run --project Services/AbilityHub.AppRegistry
+dotnet run --project Services/AbilityHub.Settings
+dotnet run --project Services/AbilityHub.Usage
+dotnet run --project Gateway/AbilityHub.Gateway
+```
+
+Default dev ports (HTTP, `ASPNETCORE_ENVIRONMENT=Development`):
+
+| Service | Port |
+|---|---|
+| Gateway (use this one) | 5046 |
+| Auth | 5289 |
+| Users | 5290 |
+| AppRegistry | 5125 |
+| Settings | 5253 |
+| Usage | 5293 |
+
+Everything goes through the Gateway at `http://localhost:5046` when run this way (the
+individual service ports are only useful for debugging one service directly).
+
+From the repository root, [`start-all.ps1`](../start-all.ps1) automates all of the above —
+infrastructure containers, all six services (each in its own PowerShell window), and the
+frontend — for a one-command local stack on Windows.
 
 ## Security notes
 

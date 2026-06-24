@@ -218,6 +218,5 @@ MobileApp/
   pubspec.yaml
 ```
 
-Every backend call goes through the gateway and uses the contracts documented in
-`BE/docs/usage-format.md`, `BE/API_CONTRACTS_NEEDED.md`, and
-`BE/docs/integration-notes.md`.
+Every backend call goes through the gateway; see [`BE/README.md`](../BE/README.md) for
+the request/response contracts (usage reporting, accessibility metrics, QR pairing).

@@ -21,3 +21,9 @@ export function formatDuration(minutes: number): string {
   const mins = minutes % 60
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
 }
+
+/** Like formatDuration, but shows seconds below a minute instead of rounding to "0m". */
+export function formatShortDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  return formatDuration(Math.round(seconds / 60))
+}

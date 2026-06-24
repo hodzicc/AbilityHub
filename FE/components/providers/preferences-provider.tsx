@@ -1,30 +1,13 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import type { UIPreferences, NotificationSettings } from '@/lib/types'
+import type { UIPreferences } from '@/lib/types'
+import { DEFAULT_PREFERENCES } from '@/lib/preferences'
 
 interface PreferencesContextType {
   preferences: UIPreferences
-  notifications: NotificationSettings
   updatePreferences: (prefs: Partial<UIPreferences>) => void
-  updateNotifications: (notifs: Partial<NotificationSettings>) => void
   resetPreferences: () => void
-}
-
-const defaultPreferences: UIPreferences = {
-  fontSize: 'medium',
-  colorScheme: 'default',
-  fontFamily: 'default',
-  reducedMotion: false,
-  highContrast: false,
-  soundEnabled: true
-}
-
-const defaultNotifications: NotificationSettings = {
-  dailyReport: true,
-  weeklyReport: true,
-  achievementAlerts: true,
-  timeLimitAlerts: true
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
@@ -33,15 +16,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // Start from defaults so server HTML and the first client render match; the
   // stored values are applied right after mount (see effect) to avoid a
   // hydration mismatch.
-  const [preferences, setPreferences] = useState<UIPreferences>(defaultPreferences)
-  const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications)
+  const [preferences, setPreferences] = useState<UIPreferences>(DEFAULT_PREFERENCES)
 
   useEffect(() => {
     try {
       const storedPrefs = localStorage.getItem('abilityhub-preferences')
-      if (storedPrefs) setPreferences({ ...defaultPreferences, ...JSON.parse(storedPrefs) })
-      const storedNotifs = localStorage.getItem('abilityhub-notifications')
-      if (storedNotifs) setNotifications({ ...defaultNotifications, ...JSON.parse(storedNotifs) })
+      if (storedPrefs) setPreferences({ ...DEFAULT_PREFERENCES, ...JSON.parse(storedPrefs) })
     } catch {
       // Ignore malformed stored values; defaults remain in effect.
     }
@@ -57,31 +37,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const updateNotifications = useCallback((notifs: Partial<NotificationSettings>) => {
-    setNotifications(prev => {
-      const updated = { ...prev, ...notifs }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('abilityhub-notifications', JSON.stringify(updated))
-      }
-      return updated
-    })
-  }, [])
-
   const resetPreferences = useCallback(() => {
-    setPreferences(defaultPreferences)
-    setNotifications(defaultNotifications)
+    setPreferences(DEFAULT_PREFERENCES)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('abilityhub-preferences', JSON.stringify(defaultPreferences))
-      localStorage.setItem('abilityhub-notifications', JSON.stringify(defaultNotifications))
+      localStorage.setItem('abilityhub-preferences', JSON.stringify(DEFAULT_PREFERENCES))
     }
   }, [])
 
   return (
     <PreferencesContext.Provider value={{
       preferences,
-      notifications,
       updatePreferences,
-      updateNotifications,
       resetPreferences
     }}>
       {children}
@@ -96,4 +62,3 @@ export function usePreferences() {
   }
   return context
 }
-

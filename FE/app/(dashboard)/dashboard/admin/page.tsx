@@ -486,7 +486,7 @@ export default function AdminPage() {
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="name@example.com"
+                placeholder={t('common.emailPlaceholder')}
                 disabled={isCreating}
               />
             </div>

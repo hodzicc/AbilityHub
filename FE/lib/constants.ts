@@ -28,3 +28,8 @@ export const APP_CATEGORIES: { value: AppCategory; color: string; i18nKey: strin
   { value: 'daily',     color: '#F97316', i18nKey: 'applications.categories.daily' },
   { value: 'games',     color: '#10B981', i18nKey: 'applications.categories.games' },
 ]
+
+// Fallback swatch for an app with no color set in the catalog. Shared so every
+// place that renders an app's color (cards, charts, dialogs) falls back to the
+// same shade instead of drifting apart.
+export const DEFAULT_APP_COLOR = '#4F46E5'

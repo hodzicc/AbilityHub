@@ -151,6 +151,16 @@ export interface DashboardResponse {
   perApp: AppUsageDto[]
   recentActivities: RecentActivityDto[]
   recommendations: string[]
+  // Distinct dates in the last 90 days with at least one completed activity —
+  // backs the activity heatmap calendar.
+  activeDays: string[]
+  // Usage minutes per day for the last 7 days (oldest → newest, gaps filled with 0).
+  dailyUsage: DailyUsageDto[]
+}
+
+export interface DailyUsageDto {
+  date: string
+  minutes: number
 }
 
 export interface AppUsageDto {
@@ -189,13 +199,6 @@ export interface LimitStatusResponse {
   usedTodayMinutes: number
   remainingMinutes: number | null
   limitReached: boolean
-}
-
-export interface ResolvedSettingsResponse {
-  childId: string
-  applicationId: string
-  preferences: Record<string, string>
-  restriction: RestrictionResponse
 }
 
 export interface PagedResult<T> {
@@ -376,20 +379,19 @@ export async function apiSetRestriction(
 
 // ---------- Usage ----------
 
-export async function apiGetDashboard(childId: string): Promise<DashboardResponse> {
-  return apiFetch(`/api/usage/children/${childId}/dashboard`)
+/**
+ * Dashboard for a child. Pass `applicationIds` to scope every figure (usage time,
+ * recent activities, average progress, weekly consistency) to that set of apps —
+ * this is how the statistics page's app-category filter is applied server-side.
+ * Omit it for everything; pass an empty array to explicitly return nothing.
+ */
+export async function apiGetDashboard(childId: string, applicationIds?: string[]): Promise<DashboardResponse> {
+  const query = applicationIds ? `?applicationIds=${encodeURIComponent(applicationIds.join(','))}` : ''
+  return apiFetch(`/api/usage/children/${childId}/dashboard${query}`)
 }
 
 export async function apiGetLimitStatus(childId: string, appId: string): Promise<LimitStatusResponse> {
   return apiFetch(`/api/usage/children/${childId}/apps/${appId}/limit-status`)
-}
-
-/** Dashboard scoped to a single activity type (statistics filtering). */
-export async function apiGetDashboardByActivityType(
-  childId: string,
-  activityType: string
-): Promise<DashboardResponse> {
-  return apiFetch(`/api/usage/children/${childId}/dashboard?activityType=${encodeURIComponent(activityType)}`)
 }
 
 // ---------- Weekly parent check-ins ----------
@@ -437,12 +439,6 @@ export async function apiSetAppPreferences(
   })
 }
 
-export async function apiGetResolvedSettings(
-  childId: string,
-  appId: string
-): Promise<ResolvedSettingsResponse> {
-  return apiFetch(`/api/settings/children/${childId}/apps/${appId}/resolved`)
-}
 
 /** Removes all per-app preference overrides — the app falls back to the child's global preferences. */
 export async function apiClearAppPreferences(childId: string, appId: string): Promise<void> {

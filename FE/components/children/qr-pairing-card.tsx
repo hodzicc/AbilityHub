@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Loader2, QrCode, RefreshCw } from 'lucide-react'
 import { apiGetChildPairingToken } from '@/lib/api'
+import { toast } from 'sonner'
 
 /**
  * QR pairing code so the child can log in to the mobile app by scanning
@@ -26,6 +27,8 @@ export function QrPairingCard({ childId, childName }: { childId: string; childNa
       const { token, expiresAt } = await apiGetChildPairingToken(childId)
       setPayload(JSON.stringify({ type: 'abilityhub-pairing', childId, token }))
       setExpiresAt(expiresAt)
+    } catch {
+      toast.error(t('qrPairing.loadError'))
     } finally {
       setIsLoading(false)
     }

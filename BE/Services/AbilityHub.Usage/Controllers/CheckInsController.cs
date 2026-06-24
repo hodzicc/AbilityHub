@@ -27,7 +27,6 @@ public class CheckInsController : ControllerBase
         _usersClient = usersClient;
     }
 
-    // POST: api/checkins/children/{childId} — create/update this week's evaluation.
     [HttpPost]
     public async Task<IActionResult> Submit(Guid childId, [FromBody] WeeklyCheckInRequest request)
     {
@@ -35,7 +34,6 @@ public class CheckInsController : ControllerBase
         return Ok(await _checkIns.SubmitAsync(childId, request));
     }
 
-    // GET: api/checkins/children/{childId} — the child's evaluation history.
     [HttpGet]
     public async Task<IActionResult> Get(Guid childId)
     {

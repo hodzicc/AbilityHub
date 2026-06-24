@@ -15,6 +15,9 @@ pubspec.lock
 # OS
 .DS_Store
 
+# Local config — never commit
+.env
+
 # Generated platform folders are produced by `flutter create .` (see README).
 # They are intentionally NOT committed in this scaffold.
 /android/

@@ -117,7 +117,8 @@ using (var scope = app.Services.CreateScope())
             await db.Database.MigrateAsync();
             await RoleSeedData.InitializeAsync(db);
             await AdminSeedData.InitializeAsync(db, passwordHasher, app.Configuration, publishEndpoint);
-            await DemoSeedData.InitializeAsync(db, passwordHasher, publishEndpoint);
+            if (app.Environment.IsDevelopment())
+                await DemoSeedData.InitializeAsync(db, passwordHasher, publishEndpoint);
             break;
         }
         catch

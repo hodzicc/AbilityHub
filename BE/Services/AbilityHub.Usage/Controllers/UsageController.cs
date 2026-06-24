@@ -38,12 +38,25 @@ public class UsageController : ControllerBase
     }
 
     // GET: api/usage/children/{childId}/dashboard — stats for the web app.
-    // Optional ?activityType= scopes activity-based figures to one type (statistics filtering).
+    // Optional ?applicationIds=id1,id2 scopes every figure to that set of apps (statistics
+    // filtering, e.g. the frontend's app-category filter resolved to app ids). Omitting the
+    // parameter returns everything; passing it with an empty value returns nothing for that app set.
     [HttpGet("children/{childId:guid}/dashboard")]
-    public async Task<IActionResult> Dashboard(Guid childId, [FromQuery] string? activityType)
+    public async Task<IActionResult> Dashboard(Guid childId, [FromQuery] string? applicationIds)
     {
         if (!await CanViewChildAsync(childId)) return Forbid();
-        return Ok(await _usage.GetDashboardAsync(childId, activityType));
+
+        List<Guid>? parsedIds = null;
+        if (applicationIds != null)
+        {
+            parsedIds = applicationIds.Length == 0
+                ? new List<Guid>()
+                : applicationIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(Guid.Parse)
+                    .ToList();
+        }
+
+        return Ok(await _usage.GetDashboardAsync(childId, parsedIds));
     }
 
     // GET: api/usage/children/{childId}/apps/{appId}/limit-status — remaining allowance vs Settings limits.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/demo_activities.dart';
@@ -32,6 +33,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
   bool _submitting = false;
 
   List<DemoStep> get _steps => widget.activity.steps;
+
+  // Audible/haptic confirmation, gated on the child's "sound enabled" preference.
+  // Demonstrates that the soundEnabled toggle actually changes app behavior.
+  void _feedback() {
+    final prefs = context.read<AppState>().prefs;
+    if (!prefs.soundEnabled) return;
+    SystemSound.play(SystemSoundType.click);
+    HapticFeedback.lightImpact();
+  }
 
   void _start() {
     setState(() {
@@ -80,6 +90,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   void _completeStep() {
+    _feedback();
     final completedNow = _currentStep + 1; // they just finished the current step
     _sendProgress(completedNow);
     if (_currentStep >= _steps.length - 1) {
@@ -131,6 +142,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         attributes: {'level': '${widget.activity.level}'},
       );
       if (!mounted) return;
+      _feedback();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bravo! Zadatak je poslan. 🎉')),
       );
@@ -227,6 +239,37 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Widget _buildRunning() {
     final step = _steps[_currentStep];
     final progress = (_currentStep + 1) / _steps.length;
+    // The reducedMotion preference removes the step transition animation: when on,
+    // the next step appears instantly instead of fading/sliding in.
+    final reducedMotion = context.watch<AppState>().prefs.reducedMotion;
+    final stepContent = Center(
+      key: ValueKey(_currentStep),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(step.instruction,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall),
+          if (_showHint) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(step.hint)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -236,32 +279,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 24),
         Expanded(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(step.instruction,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall),
-                if (_showHint) ...[
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.lightbulb),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(step.hint)),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
+          child: AnimatedSwitcher(
+            duration: reducedMotion ? Duration.zero : const Duration(milliseconds: 300),
+            child: stepContent,
           ),
         ),
         Row(

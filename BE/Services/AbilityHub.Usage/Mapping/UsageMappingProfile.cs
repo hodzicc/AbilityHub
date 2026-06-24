@@ -45,9 +45,10 @@ public class UsageMappingProfile : Profile
                 if (!hasAny) dest.Metrics = null;
             });
 
-        // Per-app aggregate → dashboard row (seconds → minutes).
+        // Per-app aggregate → dashboard row (seconds → minutes, rounded up so any
+        // nonzero usage shows as at least 1 minute instead of disappearing to 0).
         CreateMap<AppUsageAggregate, AppUsageDto>()
-            .ForMember(d => d.TotalMinutes, o => o.MapFrom(s => s.TotalSeconds / 60));
+            .ForMember(d => d.TotalMinutes, o => o.MapFrom(s => (s.TotalSeconds + 59) / 60));
 
         // Weekly parent check-ins. Id (Guid → string) converts automatically.
         CreateMap<WeeklyCheckIn, WeeklyCheckInResponse>();

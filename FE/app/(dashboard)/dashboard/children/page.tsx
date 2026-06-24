@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from '@/components/providers'
 import { useAuth } from '@/components/providers'
 import { PageHeader, EmptyState, ConfirmationDialog } from '@/components/shared'
-import { ChildCard, AddChildDialog } from '@/components/children'
+import { ChildCard, AddChildDialog, OnboardingWizard } from '@/components/children'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Child } from '@/lib/types'
@@ -44,6 +44,7 @@ export default function ChildrenPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editChild, setEditChild] = useState<Child | null>(null)
   const [deleteChild, setDeleteChild] = useState<Child | null>(null)
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
 
   // `expectId` — a just-created child's id. The profile + guardian link are built
   // asynchronously from an event, so we briefly poll until it appears (read-after-
@@ -211,7 +212,7 @@ export default function ChildrenPage() {
           description={searchQuery ? t('common.tryDifferentTerm') : t('children.noChildrenDesc')}
           action={!searchQuery && user?.role !== 'admin' ? {
             label: t('children.addChild'),
-            onClick: () => setIsAddDialogOpen(true)
+            onClick: () => setIsOnboardingOpen(true)
           } : undefined}
         />
       )}
@@ -225,6 +226,13 @@ export default function ChildrenPage() {
         }}
         onAdd={handleAddChild}
         editChild={editChild}
+      />
+
+      {/* First-time setup: add child + assign app + accessibility preferences in one flow */}
+      <OnboardingWizard
+        open={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        onFinished={() => loadChildren()}
       />
 
       {/* Delete Confirmation */}

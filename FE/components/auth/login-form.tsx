@@ -62,7 +62,7 @@ export function LoginForm() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="ime@example.com"
+                  placeholder={t('common.emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -99,6 +99,7 @@ export function LoginForm() {
                   className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                   tabIndex={-1}
+                  aria-label={showPassword ? t('common.hidePassword') : t('common.showPassword')}
                 >
                   {showPassword
                     ? <EyeOff className="h-4 w-4 text-muted-foreground" />

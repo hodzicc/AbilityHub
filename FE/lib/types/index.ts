@@ -45,60 +45,12 @@ export interface Application {
   features: string[]
   isActive: boolean
   platform?: 'web' | 'mobile' | 'hybrid'
-  // Integration display fields (may come from BE or fall back to static defaults)
-  integrationStatus?: 'ready' | 'in-progress' | 'needs-adapter'
-  apiVersion?: string
-  authMethod?: 'SSO' | 'legacy' | 'planned'
-  dataContract?: string[]
-  syncFrequency?: string
-  lastSync?: Date
-  // Raw BE fields
   dataFormat?: string
   version?: string
 }
 
-export interface AppAssignment {
-  id: string
-  childId: string
-  appId: string
-  isActive: boolean
-  dailyTimeLimit: number // in minutes
-  totalUsageTime: number // in minutes
-  lastUsed?: Date
-  createdAt: Date
-}
-
-// Statistics Types
-export interface DailyUsage {
-  date: string
-  appId: string
-  childId: string
-  duration: number // in minutes
-  sessionsCount: number
-}
-
-export interface ChildProgress {
-  childId: string
-  appId: string
-  level: number
-  score: number
-  completedActivities: number
-  totalActivities: number
-  lastActivity: Date
-}
-
-export interface ActivityLog {
-  id: string
-  childId: string
-  appId: string
-  action: 'started' | 'completed' | 'paused' | 'achievement'
-  details?: string
-  timestamp: Date
-}
-
 // Extended per-activity accessibility metrics. Apps may report any subset of
-// these; fields are optional because most current demo apps won't send them
-// until they adopt the contract in BE/API_CONTRACTS_NEEDED.md.
+// these; fields are optional because not every app can measure every signal.
 export interface ActivityMetrics {
   startedViaAction?: boolean      // activity begun via explicit "start" action
   completedViaAction?: boolean    // activity ended via explicit "done" action
@@ -144,13 +96,6 @@ export interface UIPreferences {
   reducedMotion: boolean
   highContrast: boolean
   soundEnabled: boolean
-}
-
-export interface NotificationSettings {
-  dailyReport: boolean
-  weeklyReport: boolean
-  achievementAlerts: boolean
-  timeLimitAlerts: boolean
 }
 
 // Auth Context Types

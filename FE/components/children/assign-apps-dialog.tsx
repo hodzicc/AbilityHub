@@ -16,22 +16,12 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { useTranslation } from '@/components/providers'
-import { apiGetApps, apiAssignApp, apiSetRestriction, type ApplicationResponse } from '@/lib/api'
+import { apiGetApps, apiAssignApp, apiSetRestriction } from '@/lib/api'
+import { responseToApp } from '@/lib/applications'
 import { getAppIcon } from '@/lib/app-icons'
 import type { Application } from '@/lib/types'
 import { Check, Plus, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
-
-function responseToApp(r: ApplicationResponse): Application {
-  let features: string[] = []
-  try { features = JSON.parse(r.featuresJson) } catch {}
-  return {
-    id: r.id, key: r.key, name: r.name, description: r.description,
-    category: (r.category as Application['category']) || 'education',
-    icon: r.iconName || 'AppWindow', color: r.color || '#4F46E5',
-    minAge: r.minAge, maxAge: r.maxAge, features, isActive: r.isActive,
-  }
-}
 
 interface AssignAppsDialogProps {
   open: boolean

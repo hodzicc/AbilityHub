@@ -29,9 +29,8 @@ public class ActivityRecord
 
     // ---- Accessibility-focused metrics (all optional) ----
     // Apps that can't report a given signal simply leave it null, and the
-    // dashboard renders "Nije dostupno" for it. See docs/usage-format.md and
-    // BE/API_CONTRACTS_NEEDED.md. "Time spent" alone is a poor proxy for whether
-    // an activity helped, so these capture how the activity was actually done.
+    // dashboard renders "Nije dostupno" for it. "Time spent" alone is a poor
+    // proxy for whether an activity helped, so these capture how it was actually done.
 
     /// <summary>Activity was begun via an explicit action (Start button, opening a task…).</summary>
     public bool? StartedViaAction { get; set; }

@@ -23,7 +23,7 @@ import {
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from '@/components/providers'
 import { apiRegisterApp, apiUpdateApp, type ApplicationResponse } from '@/lib/api'
-import { APP_CATEGORIES } from '@/lib/constants'
+import { APP_CATEGORIES, DEFAULT_APP_COLOR } from '@/lib/constants'
 import { toast } from 'sonner'
 
 interface AppForm {
@@ -36,7 +36,7 @@ function emptyForm(): AppForm {
   return {
     key: '', name: '', description: '', category: 'education',
     platform: 'Mobile', version: '1.0.0', dataFormat: 'abilityhub.usage.v1',
-    color: '#4F46E5', minAge: '3', maxAge: '18',
+    color: DEFAULT_APP_COLOR, minAge: '3', maxAge: '18',
   }
 }
 
@@ -49,7 +49,7 @@ function appToForm(a: ApplicationResponse): AppForm {
     platform: a.platform || 'Mobile',
     version: a.version,
     dataFormat: a.dataFormat,
-    color: a.color || '#4F46E5',
+    color: a.color || DEFAULT_APP_COLOR,
     minAge: String(a.minAge),
     maxAge: String(a.maxAge),
   }
