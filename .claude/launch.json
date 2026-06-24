@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": false,
+      "cwd": "FE"
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port=8090", "--dart-define=API_BASE_URL=http://localhost:5046"],
+      "port": 8090,
+      "cwd": "MobileApp"
+    }
+  ]
+}

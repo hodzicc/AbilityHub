@@ -9,7 +9,7 @@ import { useTranslation, useLanguage, useAuth } from '@/components/providers'
 import { formatDistanceToNow } from 'date-fns'
 import { bs, enUS } from 'date-fns/locale'
 import { apiGetChildren, apiGetDashboard, apiGetApp } from '@/lib/api'
-import { ACTIVITY_COLORS, ACTIVITY_ICONS, activityTypeToAction, type ActivityAction } from '@/lib/activity'
+import { ACTIVITY_COLORS, ACTIVITY_ICONS, resolveActivityAction, type ActivityAction } from '@/lib/activity'
 import { DEFAULT_APP_COLOR } from '@/lib/constants'
 
 interface FeedItem {
@@ -56,7 +56,7 @@ export function ActivityFeed() {
               childName,
               appName: app.name,
               appColor: app.color,
-              action: activityTypeToAction(activity.activityType),
+              action: resolveActivityAction(activity.activityType, activity.inProgress),
               details: activity.detail ?? activity.name,
               timestamp: new Date(activity.occurredAt),
             })
@@ -99,7 +99,7 @@ export function ActivityFeed() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm">{item.childName}</span>
                         <Badge variant="secondary" className={ACTIVITY_COLORS[item.action]}>
-                          <Icon className="h-3 w-3 mr-1" />
+                          <Icon className={`h-3 w-3 mr-1 ${item.action === 'inProgress' ? 'animate-spin' : ''}`} />
                           {t(`dashboard.actions.${item.action}`)}
                         </Badge>
                       </div>

@@ -93,7 +93,8 @@
       "started": "Pokrenuto",
       "completed": "Završeno",
       "paused": "Pauzirano",
-      "achievement": "Dostignuće"
+      "achievement": "Dostignuće",
+      "inProgress": "U toku"
     },
     "totalChildrenDesc": "Aktivni profili",
     "activeAppsDesc": "Dostupne aplikacije",
@@ -546,7 +547,26 @@
     "preferencesTitle": "Preferencije pristupačnosti za {name}",
     "preferencesDesc": "Ove postavke se sinhronizuju sa svim aplikacijama koje {name} koristi — možete ih promijeniti kasnije.",
     "finish": "Završi podešavanje",
-    "complete": "Sve je spremno! Profil vašeg djeteta je kreiran."
+    "complete": "Sve je spremno! Profil vašeg djeteta je kreiran.",
+    "help": "Vodič za pomoć"
+  },
+  "guide": {
+    "next": "Dalje",
+    "back": "Nazad",
+    "done": "Razumijem",
+    "skip": "Preskoči",
+    "welcomeTitle": "Dobrodošli u AbilityHub!",
+    "welcomeDesc": "Kratki vodič kroz roditeljski panel. Ovaj vodič možete ponovo otvoriti bilo kada putem dugmeta za pomoć (?) u gornjoj traci.",
+    "childrenTitle": "1. Dodajte dijete",
+    "childrenDesc": "Otvorite stranicu \"Djeca\" iz lijevog menija i kliknite \"Dodaj dijete\" da kreirate profil za svako dijete.",
+    "appsTitle": "2. Dodijelite aplikacije",
+    "appsDesc": "Na stranici \"Aplikacije\" dodijelite aplikacije koje dijete treba koristiti — samo dodijeljene aplikacije se pojavljuju na njegovom uređaju.",
+    "preferencesTitle": "3. Postavite preferencije pristupačnosti",
+    "preferencesDesc": "Na stranici \"Preferencije\" odaberite font, veličinu teksta, boje i visoki kontrast. Ove postavke se automatski sinhronizuju sa svim aplikacijama koje dijete koristi.",
+    "qrTitle": "4. Prijavite dijete",
+    "qrDesc": "Otvorite profil djeteta da prikažete QR kod. U mobilnoj aplikaciji dijete ga skenira da se prijavi — bez lozinke.",
+    "statisticsTitle": "5. Pratite napredak",
+    "statisticsDesc": "Stranica \"Statistika\" prikazuje provedeno vrijeme, završene aktivnosti, metrike pristupačnosti i sedmične provjere za svako dijete."
   },
   "qrPairing": {
     "title": "Prijava putem QR koda",
