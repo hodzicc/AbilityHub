@@ -5,6 +5,7 @@ using AbilityHub.Auth.Services.Interfaces;
 using AbilityHub.Auth.Entities;
 using AbilityHub.Auth.Repositories.Interfaces;
 using AbilityHub.Auth.Security;
+using AbilityHub.ServiceClients;
 using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Auth.Services.Implementations;
@@ -14,7 +15,8 @@ public class AuthService(
     ICredentialRepository credentialRepository,
     IAuthRepository authRepository,
     IPairingTokenRepository pairingTokenRepository,
-    IPasswordHasher passwordHasher) : IAuthService
+    IPasswordHasher passwordHasher,
+    IAppRegistryServiceClient appRegistryClient) : IAuthService
 {
     // QR pairing codes are meant to be scanned promptly, so they live briefly.
     private static readonly TimeSpan PairingTokenLifetime = TimeSpan.FromMinutes(5);
@@ -24,6 +26,7 @@ public class AuthService(
     private readonly IAuthRepository _authRepository = authRepository;
     private readonly IPairingTokenRepository _pairingTokenRepository = pairingTokenRepository;
     private readonly IPasswordHasher _passwordHasher = passwordHasher;
+    private readonly IAppRegistryServiceClient _appRegistryClient = appRegistryClient;
 
     public async Task<AuthResponse> LoginAsync(AuthRequest request)
     {
@@ -34,6 +37,10 @@ public class AuthService(
 
         if (!credential.IsActive)
             return new AuthResponse { Success = false, Message = "Account is deactivated" };
+
+        var appAccess = await CheckAppAccessAsync(credential, request.AppKey);
+        if (appAccess is not null)
+            return appAccess;
 
         return await IssueTokensAsync(credential);
     }
@@ -106,11 +113,36 @@ public class AuthService(
         if (credential is null || !credential.IsActive)
             return new AuthResponse { Success = false, Message = "Account is unavailable" };
 
+        var appAccess = await CheckAppAccessAsync(credential, request.AppKey);
+        if (appAccess is not null)
+            return appAccess;
+
         // Single use: burn the token before issuing a session so a replayed scan fails.
         token.IsUsed = true;
         await _pairingTokenRepository.UpdateAsync(token);
 
         return await IssueTokensAsync(credential);
+    }
+
+    /// <summary>
+    /// Gates a <b>child</b> to apps assigned to them. Returns null when the login is
+    /// allowed, or a failure response to return as-is. Only children are checked, and
+    /// only when an <paramref name="appKey"/> is supplied (it's optional); parents and
+    /// admins always pass. The assigned-apps lookup is done as the child, using a
+    /// freshly-minted token for their own identity — no shared service secret.
+    /// </summary>
+    private async Task<AuthResponse?> CheckAppAccessAsync(Credential credential, string? appKey)
+    {
+        if (credential.RoleId != Roles.ChildId || string.IsNullOrWhiteSpace(appKey))
+            return null;
+
+        var accessToken = _jwtService.GenerateToken(credential);
+        var assignedKeys = await _appRegistryClient.GetAssignedAppKeysAsync(credential.Id, accessToken);
+
+        if (!assignedKeys.Contains(appKey))
+            return new AuthResponse { Success = false, Message = "This app is not assigned to you." };
+
+        return null;
     }
 
     private async Task<AuthResponse> IssueTokensAsync(Credential credential)

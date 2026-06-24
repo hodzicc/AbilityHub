@@ -27,9 +27,9 @@ public class UsageStatisticsTests
             .Options;
         db = new UsageDbContext(options);
 
-        var repo = new UsageRepository(db, NullLogger<UsageRepository>.Instance);
         var mapper = new MapperConfiguration(
             cfg => cfg.AddProfile<UsageMappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
+        var repo = new UsageRepository(db, NullLogger<UsageRepository>.Instance, mapper);
         var settingsClient = new Mock<ISettingsServiceClient>().Object; // not exercised by the dashboard
         return new UsageService(repo, settingsClient, mapper);
     }

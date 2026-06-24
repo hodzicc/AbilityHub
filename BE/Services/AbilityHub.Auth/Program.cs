@@ -96,6 +96,9 @@ builder.Services.AddScoped<IPairingTokenRepository, PairingTokenRepository>();
 // Guardian↔child authorization check for issuing QR pairing tokens (Auth → Users).
 builder.Services.AddUsersServiceClient(builder.Configuration);
 
+// App-assignment lookup to gate child login to assigned apps (Auth → AppRegistry).
+builder.Services.AddAppRegistryServiceClient(builder.Configuration);
+
 // Message bus (publish-only here: Auth announces UserRegistered).
 builder.Services.AddAbilityHubMessageBus(builder.Configuration);
 

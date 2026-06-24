@@ -16,16 +16,18 @@ class AbilityHubApi {
   // ---- Auth ----
 
   /// Credential login (centralized SSO — the same login that works on the web).
+  /// Sends this app's key so the backend can reject a child the app isn't assigned to.
   Future<AuthResponse> login(String email, String password) async {
-    final json = await _client.postAnonymousJson(
-        '/api/auth/login', {'email': email, 'password': password});
+    final json = await _client.postAnonymousJson('/api/auth/login',
+        {'email': email, 'password': password, 'appKey': AppConfig.appKey});
     return AuthResponse.fromJson(json);
   }
 
-  /// Redeems a scanned QR pairing token for a child session.
+  /// Redeems a scanned QR pairing token for a child session. Sends this app's key
+  /// so the backend can reject a child the app isn't assigned to.
   Future<AuthResponse> exchangePairingToken(String token) async {
-    final json = await _client
-        .postAnonymousJson('/api/auth/pairing/exchange', {'token': token});
+    final json = await _client.postAnonymousJson(
+        '/api/auth/pairing/exchange', {'token': token, 'appKey': AppConfig.appKey});
     return AuthResponse.fromJson(json);
   }
 

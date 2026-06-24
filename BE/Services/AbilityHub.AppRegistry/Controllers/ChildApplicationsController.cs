@@ -29,7 +29,9 @@ public class ChildApplicationsController : ControllerBase
     [HttpGet("{childId:guid}")]
     public async Task<IActionResult> GetForChild(Guid childId)
     {
-        if (!await CanManageChildAsync(childId))
+        // A child may read their OWN assignments — the app uses this to confirm it's
+        // assigned before letting the child in. Otherwise only an admin or guardian.
+        if (childId != User.GetUserId() && !await CanManageChildAsync(childId))
             return Forbid();
 
         return Ok(await _childApps.GetForChildAsync(childId));

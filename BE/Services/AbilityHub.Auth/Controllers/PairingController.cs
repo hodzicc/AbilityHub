@@ -47,7 +47,7 @@ public class PairingController : ControllerBase
     public async Task<IActionResult> Exchange([FromBody] PairingExchangeRequest request)
     {
         var result = await _authService.ExchangePairingTokenAsync(request);
-        return result.Success ? Ok(result) : Unauthorized();
+        return result.Success ? Ok(result) : Unauthorized(result);
     }
 
     // Same authorization pattern used across the platform: admin, or the child's guardian.

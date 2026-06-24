@@ -52,7 +52,7 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(request);
 
         if (!result.Success)
-            return Unauthorized();
+            return Unauthorized(result);
 
         return Ok(result);
     }

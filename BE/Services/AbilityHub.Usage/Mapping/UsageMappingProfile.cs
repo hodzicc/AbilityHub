@@ -30,6 +30,14 @@ public class UsageMappingProfile : Profile
             .ForMember(d => d.HintsShown, o => o.MapFrom(s => s.Metrics != null ? s.Metrics.HintsShown : null))
             .ForMember(d => d.ErrorsCount, o => o.MapFrom(s => s.Metrics != null ? s.Metrics.ErrorsCount : null));
 
+        // In-place update of a tracked activity (live step progress). Identity and
+        // ownership stay as they are on the existing row; everything else is overwritten.
+        CreateMap<ActivityRecord, ActivityRecord>()
+            .ForMember(d => d.Id, o => o.Ignore())
+            .ForMember(d => d.ChildId, o => o.Ignore())
+            .ForMember(d => d.ApplicationId, o => o.Ignore())
+            .ForMember(d => d.Attributes, o => o.Ignore()); // computed; AttributesJson carries the data
+
         // Entity → metrics DTO (field names line up one-to-one).
         CreateMap<ActivityRecord, ActivityMetricsDto>();
 

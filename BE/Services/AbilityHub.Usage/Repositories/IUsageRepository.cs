@@ -31,11 +31,12 @@ namespace AbilityHub.Usage.Repositories
         Task UpsertActivityAsync(ActivityRecord activity);
 
         /// <summary>
-        /// Per-app totals for a child (time, session count, last used), optionally
-        /// restricted to one set of application ids (used for category filtering,
-        /// since app category lives in AppRegistry and is resolved by the caller).
+        /// Per-app totals for a child (time, session count, last used) over sessions
+        /// started on/after <paramref name="sinceUtc"/>, optionally restricted to one
+        /// set of application ids (used for category filtering, since app category
+        /// lives in AppRegistry and is resolved by the caller).
         /// </summary>
-        Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null);
+        Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null);
 
         /// <summary>Most recent activities for a child, optionally restricted to a set of application ids.</summary>
         Task<IReadOnlyList<ActivityRecord>> GetRecentActivitiesAsync(Guid childId, int limit, IReadOnlyCollection<Guid>? applicationIds = null);

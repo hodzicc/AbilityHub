@@ -12,6 +12,7 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
     private const int ConsistencyWindowDays = 7;
     private const int ActivityHeatmapWindowDays = 90;
     private const int DailyUsageWindowDays = 7;
+    private const int PerAppWindowDays = 30;
 
     private readonly IUsageRepository _repository = repository;
     private readonly ISettingsServiceClient _settingsClient = settingsClient;
@@ -67,7 +68,8 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
 
     public async Task<DashboardResponse> GetDashboardAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null)
     {
-        var perApp = await _repository.GetPerAppAggregatesAsync(childId, applicationIds);
+        var perApp = await _repository.GetPerAppAggregatesAsync(
+            childId, DateTime.UtcNow.Date.AddDays(-(PerAppWindowDays - 1)), applicationIds);
         var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, applicationIds);
         var activityCount = await _repository.GetActivityCountAsync(childId, applicationIds);
         var stepCompletions = await _repository.GetStepCompletionsAsync(childId, applicationIds);

@@ -38,4 +38,19 @@ public static class ServiceClientsExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers a typed client to the AppRegistry service for assignment lookups.
+    /// The caller passes the access token to use per request (e.g. Auth at login uses
+    /// the child's own freshly-minted token), so no token-forwarding handler is wired.
+    /// Base address comes from <c>Services:AppRegistryBaseUrl</c>.
+    /// </summary>
+    public static IServiceCollection AddAppRegistryServiceClient(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHttpClient<IAppRegistryServiceClient, AppRegistryServiceClient>(client =>
+            client.BaseAddress = new Uri(configuration["Services:AppRegistryBaseUrl"]
+                ?? throw new InvalidOperationException("Services:AppRegistryBaseUrl is not configured.")));
+
+        return services;
+    }
 }

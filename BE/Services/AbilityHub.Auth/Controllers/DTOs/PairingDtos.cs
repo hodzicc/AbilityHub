@@ -15,4 +15,10 @@ public class PairingTokenResponse
 public class PairingExchangeRequest
 {
     public required string Token { get; set; }
+
+    /// <summary>
+    /// Optional stable key (slug) of the app redeeming the token. When supplied, a child
+    /// is let in only if that app is assigned to them. Skipped when omitted.
+    /// </summary>
+    public string? AppKey { get; set; }
 }

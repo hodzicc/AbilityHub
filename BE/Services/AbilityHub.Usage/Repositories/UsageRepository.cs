@@ -1,12 +1,14 @@
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using AbilityHub.Usage.Entities;
 
 namespace AbilityHub.Usage.Repositories
 {
-    public class UsageRepository(UsageDbContext context, ILogger<UsageRepository> logger) : IUsageRepository
+    public class UsageRepository(UsageDbContext context, ILogger<UsageRepository> logger, IMapper mapper) : IUsageRepository
     {
         private readonly UsageDbContext _context = context;
         private readonly ILogger<UsageRepository> _logger = logger;
+        private readonly IMapper _mapper = mapper;
 
         public async Task AddSessionAsync(UsageSession session)
         {
@@ -57,20 +59,7 @@ namespace AbilityHub.Usage.Repositories
             else if (existing.ChildId == activity.ChildId)
             {
                 // Same attempt, advanced a step — update its current state.
-                existing.ActivityType = activity.ActivityType;
-                existing.Name = activity.Name;
-                existing.Score = activity.Score;
-                existing.OccurredAt = activity.OccurredAt;
-                existing.Detail = activity.Detail;
-                existing.InProgress = activity.InProgress;
-                existing.AttributesJson = activity.AttributesJson;
-                existing.StartedViaAction = activity.StartedViaAction;
-                existing.CompletedViaAction = activity.CompletedViaAction;
-                existing.StepsCompleted = activity.StepsCompleted;
-                existing.StepsTotal = activity.StepsTotal;
-                existing.DurationSeconds = activity.DurationSeconds;
-                existing.HintsShown = activity.HintsShown;
-                existing.ErrorsCount = activity.ErrorsCount;
+                _mapper.Map(activity, existing);
             }
             else
             {
@@ -83,10 +72,10 @@ namespace AbilityHub.Usage.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null)
+        public async Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null)
             => await _context.UsageSessions
                 .AsNoTracking()
-                .Where(s => s.ChildId == childId)
+                .Where(s => s.ChildId == childId && s.StartedAt >= sinceUtc)
                 .Where(s => applicationIds == null || applicationIds.Contains(s.ApplicationId))
                 .GroupBy(s => s.ApplicationId)
                 .Select(g => new AppUsageAggregate(
