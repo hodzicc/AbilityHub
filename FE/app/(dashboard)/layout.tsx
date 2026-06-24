@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/providers'
+import { useAuth, OnboardingProvider } from '@/components/providers'
 import { Sidebar, Header } from '@/components/dashboard'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
@@ -36,6 +36,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <OnboardingProvider>
     <div className="min-h-screen bg-background">
       {/* Mobile sidebar overlay */}
       {isMobileOpen && (
@@ -67,5 +68,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </OnboardingProvider>
   )
 }

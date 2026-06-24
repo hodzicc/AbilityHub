@@ -93,7 +93,8 @@
       "started": "Started",
       "completed": "Completed",
       "paused": "Paused",
-      "achievement": "Achievement"
+      "achievement": "Achievement",
+      "inProgress": "In progress"
     },
     "totalChildrenDesc": "Active profiles",
     "activeAppsDesc": "Available applications",
@@ -546,7 +547,26 @@
     "preferencesTitle": "Accessibility preferences for {name}",
     "preferencesDesc": "These settings sync to every app {name} uses — you can always change them later.",
     "finish": "Finish setup",
-    "complete": "All set! Your child's profile is ready."
+    "complete": "All set! Your child's profile is ready.",
+    "help": "Help guide"
+  },
+  "guide": {
+    "next": "Next",
+    "back": "Back",
+    "done": "Got it",
+    "skip": "Skip",
+    "welcomeTitle": "Welcome to AbilityHub!",
+    "welcomeDesc": "A quick tour of how the parent dashboard works. You can reopen this any time from the help button (?) in the top bar.",
+    "childrenTitle": "1. Add your child",
+    "childrenDesc": "Open the \"Children\" page from the left menu and click \"Add child\" to create a profile for each child.",
+    "appsTitle": "2. Assign apps",
+    "appsDesc": "On the \"Applications\" page, assign the apps a child should use — only assigned apps appear on their device.",
+    "preferencesTitle": "3. Set accessibility preferences",
+    "preferencesDesc": "On the \"Preferences\" page choose font, text size, colours and high contrast. These sync automatically to every app the child uses.",
+    "qrTitle": "4. Sign the child in",
+    "qrDesc": "Open the child's profile to show a QR code. In the mobile app the child scans it to log in — no password needed.",
+    "statisticsTitle": "5. Follow their progress",
+    "statisticsDesc": "The \"Statistics\" page shows time spent, completed activities, accessibility metrics and weekly check-ins for each child."
   },
   "qrPairing": {
     "title": "QR code login",

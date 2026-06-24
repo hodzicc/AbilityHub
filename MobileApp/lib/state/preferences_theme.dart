@@ -102,17 +102,68 @@ ThemeData buildTheme(AppPreferences prefs) {
   );
 
   // The "high contrast" boolean toggle keeps the chosen palette but crisps it up:
-  // near-black text, heavier weight, and a stronger divider — "increase text and
-  // element contrast" without becoming the yellow/black scheme.
+  // pure-black text in a heavier weight, white surfaces, a strong dark primary,
+  // and visible black borders on buttons, cards and inputs — a clearly noticeable
+  // boost in "text and element contrast" without becoming the yellow/black scheme.
   if (prefs.highContrast) {
-    const ink = Color(0xFF111111);
+    const ink = Color(0xFF000000);
+    const paper = Color(0xFFFFFFFF);
+    // Darken the chosen accent hard so primary surfaces (app bar, buttons) read
+    // with strong contrast against white — a clearly visible shift, not a nuance.
+    final strongPrimary = Color.alphaBlend(const Color(0x99000000), seed);
+
+    final hcText = theme.textTheme.apply(bodyColor: ink, displayColor: ink);
     theme = theme.copyWith(
-      textTheme: theme.textTheme.apply(
-        bodyColor: ink,
-        displayColor: ink,
-      ),
+      scaffoldBackgroundColor: paper,
       dividerColor: ink,
-      colorScheme: theme.colorScheme.copyWith(onSurface: ink, outline: ink),
+      dividerTheme: const DividerThemeData(color: ink, thickness: 2),
+      textTheme: hcText.copyWith(
+        headlineSmall: hcText.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        titleLarge: hcText.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        titleMedium: hcText.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        bodyLarge: hcText.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+        bodyMedium: hcText.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      colorScheme: theme.colorScheme.copyWith(
+        primary: strongPrimary,
+        onPrimary: paper,
+        surface: paper,
+        onSurface: ink,
+        outline: ink,
+        outlineVariant: ink,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: strongPrimary,
+        foregroundColor: paper,
+        titleTextStyle: const TextStyle(color: paper, fontSize: 22, fontWeight: FontWeight.w800),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: strongPrimary,
+          foregroundColor: paper,
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          side: const BorderSide(color: ink, width: 2.5),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ink,
+          side: const BorderSide(color: ink, width: 2.5),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: paper,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: ink, width: 2.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(iconColor: ink),
+      inputDecorationTheme: const InputDecorationTheme(
+        enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: ink, width: 2)),
+        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: ink, width: 3)),
+      ),
     );
   }
 

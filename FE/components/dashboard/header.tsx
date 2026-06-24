@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/components/providers'
 import { useTranslation } from '@/components/providers'
+import { useOnboarding } from '@/components/providers'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LanguageToggle } from './language-toggle'
 import { ThemeToggle } from './theme-toggle'
-import { LogOut, User, Menu } from 'lucide-react'
+import { LogOut, User, Menu, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
@@ -24,6 +25,7 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth()
   const { t } = useTranslation()
+  const { openWizard } = useOnboarding()
   const router = useRouter()
 
   const handleLogout = () => {
@@ -58,6 +60,17 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        {user?.role === 'parent' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={openWizard}
+            title={t('onboarding.help')}
+            aria-label={t('onboarding.help')}
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Button>
+        )}
         <LanguageToggle />
         <ThemeToggle />
         

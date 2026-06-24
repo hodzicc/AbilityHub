@@ -8,7 +8,7 @@ import { useTranslation, useLanguage } from '@/components/providers'
 import { formatDistanceToNow } from 'date-fns'
 import { bs, enUS } from 'date-fns/locale'
 import { AppWindow } from 'lucide-react'
-import { ACTIVITY_COLORS, ACTIVITY_ICONS, activityTypeToAction } from '@/lib/activity'
+import { ACTIVITY_COLORS, ACTIVITY_ICONS, resolveActivityAction } from '@/lib/activity'
 import type { RecentActivityDto } from '@/lib/api'
 import type { Application } from '@/lib/types'
 import { DEFAULT_APP_COLOR } from '@/lib/constants'
@@ -53,7 +53,7 @@ export function ChildActivityFeed({ activities, apps }: ChildActivityFeedProps) 
               </p>
             ) : (
               sorted.map(activity => {
-                const action = activityTypeToAction(activity.activityType)
+                const action = resolveActivityAction(activity.activityType, activity.inProgress)
                 const Icon = ACTIVITY_ICONS[action]
                 const app = appById[activity.applicationId]
                 const color = app?.color ?? DEFAULT_APP_COLOR
@@ -72,7 +72,7 @@ export function ChildActivityFeed({ activities, apps }: ChildActivityFeedProps) 
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm">{app?.name ?? activity.name}</span>
                         <Badge variant="secondary" className={ACTIVITY_COLORS[action]}>
-                          <Icon className="h-3 w-3 mr-1" />
+                          <Icon className={`h-3 w-3 mr-1 ${action === 'inProgress' ? 'animate-spin' : ''}`} />
                           {t(`dashboard.actions.${action}`)}
                         </Badge>
                       </div>
