@@ -46,6 +46,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   HubConnection? _hub;
   Timer? _pollTimer;
+  // One-shot timer that fires the instant the daily allowance runs out, so the child
+  // is locked out on time even if they just sit in the app without completing tasks.
+  Timer? _limitTimer;
 
   AppPreferences get prefs => AppPreferences.fromSettings(settings);
   ThemeData get theme => buildTheme(prefs);
@@ -109,13 +112,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // Realtime: connect to the Settings SignalR hub so a changed *limit/block* applies
   // instantly. Preferences are deliberately NOT applied live — they're loaded once
   // per session (and on resume), so a child's look only changes the next time they
-  // use the app, not the second a parent edits it on the web. A 30s poll is a
-  // fallback for the limit if the socket drops.
+  // use the app, not the second a parent edits it on the web. A 30s heartbeat also
+  // commits the live foreground time and re-checks the limit, so the daily allowance
+  // is enforced even while the child just sits in the app (and as a fallback if the
+  // socket drops).
   Future<void> _startRealtime() async {
     if (child == null) return;
 
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => refreshLimit());
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _heartbeat());
 
     if (_hub != null) return;
     try {
@@ -142,6 +147,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _stopRealtime() async {
     _pollTimer?.cancel();
     _pollTimer = null;
+    _limitTimer?.cancel();
+    _limitTimer = null;
     final hub = _hub;
     _hub = null;
     if (hub != null) {
@@ -149,6 +156,37 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         await hub.stop();
       } catch (_) {}
     }
+  }
+
+  /// Periodic heartbeat: commit the live foreground time (the server upserts the same
+  /// session row, so today's total grows live) and re-check the limit. This is what
+  /// makes the daily allowance get enforced while the child simply stays in the app.
+  Future<void> _heartbeat() async {
+    await _reportAppTime();
+    await refreshLimit();
+  }
+
+  /// Schedules a one-shot lockout for the exact moment the daily allowance runs out.
+  /// Without this, enforcement would lag up to a full heartbeat (30s); with it the
+  /// child is locked the second their remaining minutes elapse. Re-armed whenever the
+  /// limit is refreshed or time-tracking starts/stops.
+  void _scheduleLimitTimer() {
+    _limitTimer?.cancel();
+    _limitTimer = null;
+
+    // Only meaningful while actively counting against a finite daily limit.
+    if (_appSessionId == null) return;
+    final remaining = limit?.remainingMinutes;
+    if (remaining == null) return; // no daily limit set
+
+    final remainingSeconds = remaining * 60;
+    if (remainingSeconds <= 0) return; // already at/over the limit — refreshLimit locks
+
+    _limitTimer = Timer(Duration(seconds: remainingSeconds), () async {
+      // Allowance just ran out: commit the time and re-check, which flips the lockout.
+      await _reportAppTime();
+      await refreshLimit();
+    });
   }
 
   // ---- Time in app (foreground usage) ----
@@ -181,6 +219,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _stopTimeTracking(flush: true);
       notifyListeners();
     }
+
+    // (Re)arm the precise lockout timer for the current tracking + limit state.
+    _scheduleLimitTimer();
   }
 
   /// The current foreground period as a session payload (or null if not counting).

@@ -11,6 +11,9 @@ namespace AbilityHub.Usage.Repositories
             => await _context.WeeklyCheckIns
                 .FirstOrDefaultAsync(c => c.ChildId == childId && c.WeekStartDate == weekStartDate);
 
+        public async Task<WeeklyCheckIn?> GetByIdAsync(Guid id)
+            => await _context.WeeklyCheckIns.FirstOrDefaultAsync(c => c.Id == id);
+
         public async Task<IReadOnlyList<WeeklyCheckIn>> GetForChildAsync(Guid childId)
             => await _context.WeeklyCheckIns
                 .Where(c => c.ChildId == childId)
@@ -27,6 +30,12 @@ namespace AbilityHub.Usage.Repositories
         public async Task UpdateAsync(WeeklyCheckIn checkIn)
         {
             _context.WeeklyCheckIns.Update(checkIn);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(WeeklyCheckIn checkIn)
+        {
+            _context.WeeklyCheckIns.Remove(checkIn);
             await _context.SaveChangesAsync();
         }
     }

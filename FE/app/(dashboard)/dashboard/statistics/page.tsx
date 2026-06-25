@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth, useTranslation } from '@/components/providers'
-import { PageHeader, EmptyState } from '@/components/shared'
+import { PageHeader } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,20 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatDuration, formatShortDuration } from '@/lib/utils'
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
-import { Clock, TrendingUp, Calendar, Sparkles, Loader2, Play, BarChart3 } from 'lucide-react'
+import { Clock, TrendingUp, Calendar, Sparkles, Loader2, Play } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
@@ -45,6 +32,9 @@ import { ACTIVITY_ICONS, activityTypeToAction } from '@/lib/activity'
 import { COLOR_SCHEMES, recordToPrefs } from '@/lib/preferences'
 import { WeeklyCheckInCard } from '@/components/statistics/weekly-checkin-card'
 import { ActivityHeatmap } from '@/components/statistics/activity-heatmap'
+import { UsageByAppChart } from '@/components/statistics/usage-by-app-chart'
+import { ActivityMetricsChart } from '@/components/statistics/activity-metrics-chart'
+import { weekRange } from '@/components/statistics/week-nav'
 import { useUsageRealtime } from '@/lib/realtime/use-usage-realtime'
 
 const categories: (AppCategory | 'all')[] = ['all', ...APP_CATEGORIES.map(c => c.value)]
@@ -59,6 +49,8 @@ function emptyDashboard(childId: string): DashboardResponse {
   return {
     childId,
     generatedAt: new Date().toISOString(),
+    rangeStart: weekRange(0).from,
+    rangeEnd: weekRange(0).to,
     totalUsageMinutes: 0,
     activityCount: 0,
     avgProgressPercent: null,
@@ -75,14 +67,9 @@ export default function StatisticsPage() {
   const { t, locale } = useTranslation()
   const { user } = useAuth()
   const { resolvedTheme } = useTheme()
-  // Recharts renders axis ticks as SVG <text fill="...">; CSS variables don't
-  // resolve in the SVG fill attribute, so we pass concrete theme-aware colors.
+  // Only the heatmap's empty-cell color is theme-dependent here now; the navigable
+  // charts are self-contained components that handle their own theming.
   const isDark = resolvedTheme === 'dark'
-  const axisColor = isDark ? '#cbd5e1' : '#475569'
-  const gridColor = isDark ? '#334155' : '#e2e8f0'
-  const tooltipBg = isDark ? '#1e293b' : '#ffffff'
-  const tooltipBorder = isDark ? '#334155' : '#e2e8f0'
-  const tooltipText = isDark ? '#f1f5f9' : '#0f172a'
   // Unfiltered dashboards — the source of truth, kept fresh by the initial load
   // and realtime updates. Used to discover which apps exist (for the category
   // dropdown's app-id resolution) regardless of which category is selected.
@@ -136,6 +123,7 @@ export default function StatisticsPage() {
       }
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   // App ids belonging to the selected category, resolved from the apps we've
@@ -274,32 +262,13 @@ export default function StatisticsPage() {
     return Math.round((reported.reduce((s, v) => s + v, 0) / reported.length) * 100)
   }, [displayDashboards])
 
-  // Usage by app (pie chart)
-  const usageByApp = useMemo(() => {
-    const grouped: Record<string, number> = {}
-    displayDashboards.forEach(d =>
-      d.perApp.forEach(a => {
-        grouped[a.applicationId] = (grouped[a.applicationId] ?? 0) + a.totalMinutes
-      })
-    )
-    return Object.entries(grouped)
-      .map(([appId, value]) => ({
-        name: appNames[appId]?.name ?? t('common.unknown'),
-        value,
-        color: appNames[appId]?.color ?? '#666',
-      }))
-      .sort((a, b) => b.value - a.value)
-  }, [displayDashboards, appNames, t])
-
-  // Per-app bar chart
-  const appBarData = useMemo(() => {
-    return usageByApp.map(a => ({ name: a.name.slice(0, 12), usage: a.value, color: a.color }))
-  }, [usageByApp])
-
-  // Recharts can't draw a meaningful bar/pie when every value is zero (e.g. a
-  // child with activities logged but no recorded session duration yet) — show
-  // a clear empty state instead of a blank chart area.
-  const hasUsageData = usageByApp.some(a => a.value > 0)
+  // Children whose data the navigable charts should aggregate (all displayed, or
+  // the single selected child). The usage + outcomes charts each fetch their own
+  // 7-day window from these, so they navigate weeks independently of the page.
+  const chartChildIds = useMemo(
+    () => (selectedChild === 'all' ? childrenData.map(d => d.profile.id) : [selectedChild]),
+    [selectedChild, childrenData]
+  )
 
   // Recent activity
   const recentActivities = useMemo(() => {
@@ -456,41 +425,9 @@ export default function StatisticsPage() {
             <div className="grid gap-6 lg:grid-cols-3">
               {/* Placed explicitly so each row's pair (chart|chart, activity|heatmap)
                   shares the row height via the grid's default items-stretch. */}
-              <Card className="lg:col-span-2 lg:row-start-1">
-                <CardHeader>
-                  <CardTitle className="text-lg">{t('statistics.usageByAppChart')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {hasUsageData ? (
-                      <div className="h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={appBarData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 12 }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: axisColor, fontSize: 12 }} allowDecimals={false} />
-                            <Tooltip
-                              cursor={{ fill: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
-                              contentStyle={{
-                                backgroundColor: tooltipBg,
-                                border: `1px solid ${tooltipBorder}`,
-                                borderRadius: '8px',
-                                color: tooltipText,
-                              }}
-                              formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
-                            />
-                            <Bar dataKey="usage" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={64}>
-                              {appBarData.map((entry, index) => (
-                                <Cell key={index} fill={entry.color} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <EmptyState icon={BarChart3} title={t('statistics.noUsageYet')} description={t('statistics.noUsageYetDesc')} />
-                    )}
-                  </CardContent>
-                </Card>
+              <div className="lg:col-span-2 lg:row-start-1">
+                <UsageByAppChart childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} />
+              </div>
 
                 <Card className="lg:col-span-2 lg:row-start-2">
                   <CardHeader>
@@ -569,46 +506,9 @@ export default function StatisticsPage() {
                   </CardContent>
                 </Card>
 
-              <Card className="lg:col-start-3 lg:row-start-1">
-                <CardHeader>
-                  <CardTitle className="text-lg">{t('statistics.shareByApp')}</CardTitle>
-                </CardHeader>
-                <CardContent className="flex h-full items-center">
-                  {hasUsageData ? (
-                    <div className="h-[260px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={usageByApp}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={55}
-                              outerRadius={90}
-                              paddingAngle={2}
-                              dataKey="value"
-                            >
-                              {usageByApp.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: tooltipBg,
-                                border: `1px solid ${tooltipBorder}`,
-                                borderRadius: '8px',
-                                color: tooltipText,
-                              }}
-                              formatter={(value: number) => [`${value} min`, t('dashboard.usageTooltip')]}
-                            />
-                            <Legend wrapperStyle={{ color: axisColor, fontSize: 12 }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    ) : (
-                      <EmptyState icon={BarChart3} title={t('statistics.noUsageYet')} description={t('statistics.noUsageYetDesc')} />
-                    )}
-                  </CardContent>
-                </Card>
+              <div className="lg:col-start-3 lg:row-start-1">
+                <ActivityMetricsChart childIds={chartChildIds} applicationIds={categoryAppIds} />
+              </div>
 
               <Card className="flex flex-col lg:col-start-3 lg:row-start-2">
                 <CardHeader>

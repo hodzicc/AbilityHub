@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useAuth, useTranslation } from '@/components/providers'
 import { PageHeader } from '@/components/shared'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -37,6 +37,7 @@ import {
   type DashboardResponse,
 } from '@/lib/api'
 import { responseToApp } from '@/lib/applications'
+import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
 // ── main page ──────────────────────────────────────────────────────────────
@@ -45,6 +46,16 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
   const { id } = use(params)
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { resolvedTheme } = useTheme()
+  // Recharts renders axis ticks as SVG <text fill="...">; CSS variables don't resolve
+  // in the SVG fill attribute, so pass concrete theme-aware colors (else dark mode
+  // falls back to black text). Mirrors the statistics page.
+  const isDark = resolvedTheme === 'dark'
+  const axisColor = isDark ? '#cbd5e1' : '#475569'
+  const gridColor = isDark ? '#334155' : '#e2e8f0'
+  const tooltipBg = isDark ? '#1e293b' : '#ffffff'
+  const tooltipBorder = isDark ? '#334155' : '#e2e8f0'
+  const tooltipText = isDark ? '#f1f5f9' : '#0f172a'
 
   const [child, setChild] = useState<Child | null>(null)
   const [assignedApps, setAssignedApps] = useState<Array<{
@@ -182,6 +193,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3">
                 <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatDuration(totalUsage)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{t('children.totalUsage')}</p>
+                <p className="text-[10px] text-muted-foreground/70">{t('children.last7Days')}</p>
               </div>
             </div>
           </div>
@@ -296,6 +308,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
             <Card className="border-0 shadow-sm">
               <CardHeader>
                 <CardTitle>{t('children.usageByAppTitle')}</CardTitle>
+                <CardDescription>{t('children.last7Days')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[280px]">
@@ -307,16 +320,21 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                           <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                       <XAxis dataKey="date" axisLine={false} tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                        tick={{ fill: axisColor, fontSize: 12 }} />
                       <YAxis axisLine={false} tickLine={false}
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                      <Tooltip contentStyle={{
-                        backgroundColor: 'hsl(var(--popover))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '10px',
-                      }} formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]} />
+                        tick={{ fill: axisColor, fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: tooltipBg,
+                          border: `1px solid ${tooltipBorder}`,
+                          borderRadius: '10px',
+                        }}
+                        labelStyle={{ color: tooltipText }}
+                        itemStyle={{ color: tooltipText }}
+                        formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]}
+                      />
                       <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -330,6 +348,10 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
             />
           </div>
 
+          <div>
+            <h3 className="mb-1 text-base font-semibold">{t('children.usageByAppBreakdown')}</h3>
+            <p className="mb-3 text-xs text-muted-foreground">{t('children.last7Days')}</p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {assignedApps.map(({ app, totalMinutes }) => (
               <Card key={app.id} className="border-0 shadow-sm">

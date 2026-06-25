@@ -41,22 +41,36 @@ public class UsageController : ControllerBase
     // Optional ?applicationIds=id1,id2 scopes every figure to that set of apps (statistics
     // filtering, e.g. the frontend's app-category filter resolved to app ids). Omitting the
     // parameter returns everything; passing it with an empty value returns nothing for that app set.
+    // Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD scopes the per-app + daily usage window
+    // (week navigation); both default to the last 7 days, clamped to a 90-day lookback.
     [HttpGet("children/{childId:guid}/dashboard")]
-    public async Task<IActionResult> Dashboard(Guid childId, [FromQuery] string? applicationIds)
+    public async Task<IActionResult> Dashboard(
+        Guid childId, [FromQuery] string? applicationIds, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
         if (!await CanViewChildAsync(childId)) return Forbid();
+        return Ok(await _usage.GetDashboardAsync(childId, ParseAppIds(applicationIds), from, to));
+    }
 
-        List<Guid>? parsedIds = null;
-        if (applicationIds != null)
-        {
-            parsedIds = applicationIds.Length == 0
-                ? new List<Guid>()
-                : applicationIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(Guid.Parse)
-                    .ToList();
-        }
+    // GET: api/usage/children/{childId}/daily-metrics — per-day activity outcome counts
+    // (hints, completed, not-completed, step-backs) for the statistics outcomes chart.
+    // Same ?applicationIds / ?from / ?to semantics as the dashboard.
+    [HttpGet("children/{childId:guid}/daily-metrics")]
+    public async Task<IActionResult> DailyMetrics(
+        Guid childId, [FromQuery] string? applicationIds, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        if (!await CanViewChildAsync(childId)) return Forbid();
+        return Ok(await _usage.GetDailyMetricsAsync(childId, ParseAppIds(applicationIds), from, to));
+    }
 
-        return Ok(await _usage.GetDashboardAsync(childId, parsedIds));
+    // null = no filter; empty value = an explicit empty set (returns nothing).
+    private static List<Guid>? ParseAppIds(string? applicationIds)
+    {
+        if (applicationIds == null) return null;
+        return applicationIds.Length == 0
+            ? new List<Guid>()
+            : applicationIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Guid.Parse)
+                .ToList();
     }
 
     // GET: api/usage/children/{childId}/apps/{appId}/limit-status — remaining allowance vs Settings limits.

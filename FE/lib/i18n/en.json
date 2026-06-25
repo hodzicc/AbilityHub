@@ -162,6 +162,8 @@
     "perAppPreferencesTitle": "Preferences per application",
     "perAppPreferencesDesc": "Overview of which applications use global settings and which have customizations. Click an application to edit it.",
     "usageByAppTitle": "Total usage by application",
+    "usageByAppBreakdown": "Usage by application",
+    "last7Days": "Last 7 days",
     "editTimeLimitTitle": "Edit time limit",
     "preferencesTab": "Preferences",
     "loadProfileError": "Error loading profile"
@@ -281,6 +283,10 @@
     "selectApp": "Select application",
     "allChildren": "All children",
     "allApps": "All applications",
+    "sevenDayWindow": "7 days",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "thisWeek": "This week",
     "totalTime": "Total time",
     "avgDaily": "Daily average",
     "sessions": "Sessions",
@@ -312,6 +318,15 @@
     "activityCount": "Activity count",
     "usageByAppChart": "Usage by application (min)",
     "shareByApp": "Share by application",
+    "activityOutcomes": "Activity outcomes",
+    "noOutcomesYet": "No activity outcomes yet",
+    "noOutcomesYetDesc": "Once activities are reported, completed/not-completed, hints and mistakes will appear here.",
+    "outcomes": {
+      "completed": "Completed",
+      "notCompleted": "Not completed",
+      "hints": "Hints",
+      "stepBacks": "Mistakes"
+    },
     "noActivities": "No activities recorded",
     "loadError": "Error loading statistics",
     "metrics": {
@@ -320,7 +335,7 @@
       "steps": "Steps",
       "duration": "Duration",
       "hintsShown": "Hints shown",
-      "errors": "Errors"
+      "errors": "Mistakes"
     }
   },
   "settings": {
@@ -510,6 +525,19 @@
     "noHistory": "No evaluations yet",
     "weekOf": "Week of {date}",
     "safetyIncidentReported": "Safety incident reported",
+    "viewDetailsHint": "Double-click an evaluation to see all details.",
+    "detailsTitle": "Evaluation details",
+    "notProvided": "Not provided",
+    "notesLabel": "Notes",
+    "recordedAt": "Recorded at",
+    "update": "Update evaluation",
+    "alreadySubmitted": "An evaluation for this week already exists — saving updates it.",
+    "editingPastWeek": "Editing the evaluation for the week of {date}.",
+    "backToCurrent": "Back to this week",
+    "deleteTitle": "Delete evaluation",
+    "deleteConfirm": "Delete the evaluation for the week of {date}? This can't be undone.",
+    "deleteSuccess": "Evaluation deleted",
+    "deleteError": "Error deleting the evaluation",
     "moods": {
       "great": "Great",
       "good": "Good",

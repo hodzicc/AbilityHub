@@ -7,10 +7,14 @@ namespace AbilityHub.Usage.Repositories
         /// <summary>The check-in for a (child, week), or null if none exists yet.</summary>
         Task<WeeklyCheckIn?> GetByWeekAsync(Guid childId, DateOnly weekStartDate);
 
+        /// <summary>A single check-in by id, or null if not found.</summary>
+        Task<WeeklyCheckIn?> GetByIdAsync(Guid id);
+
         /// <summary>All of a child's check-ins, most recent week first.</summary>
         Task<IReadOnlyList<WeeklyCheckIn>> GetForChildAsync(Guid childId);
 
         Task AddAsync(WeeklyCheckIn checkIn);
         Task UpdateAsync(WeeklyCheckIn checkIn);
+        Task DeleteAsync(WeeklyCheckIn checkIn);
     }
 }

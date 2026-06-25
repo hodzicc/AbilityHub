@@ -41,4 +41,14 @@ public class CheckInService(ICheckInRepository repository, IMapper mapper) : ICh
         var items = await _repository.GetForChildAsync(childId);
         return _mapper.Map<List<WeeklyCheckInResponse>>(items);
     }
+
+    public async Task<bool> DeleteAsync(Guid childId, Guid checkInId)
+    {
+        var existing = await _repository.GetByIdAsync(checkInId);
+        // Guard against deleting another child's evaluation via a guessed id.
+        if (existing is null || existing.ChildId != childId) return false;
+
+        await _repository.DeleteAsync(existing);
+        return true;
+    }
 }

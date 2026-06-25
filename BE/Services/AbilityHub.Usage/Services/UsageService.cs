@@ -11,8 +11,13 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
     private const int RecentActivityLimit = 20;
     private const int ConsistencyWindowDays = 7;
     private const int ActivityHeatmapWindowDays = 90;
-    private const int DailyUsageWindowDays = 7;
-    private const int PerAppWindowDays = 30;
+    // Default usage window (per-app + daily) when the caller doesn't pass an explicit
+    // range — a single 7-day week. The statistics page pages through earlier weeks via
+    // the from/to parameters; the heatmap (90d) and consistency (7d) windows are fixed.
+    private const int DefaultWindowDays = 7;
+    // How far back the caller may page (matches the heatmap window). Requests for an
+    // earlier start are clamped so we never scan unbounded history.
+    private const int MaxWindowLookbackDays = 90;
 
     private readonly IUsageRepository _repository = repository;
     private readonly ISettingsServiceClient _settingsClient = settingsClient;
@@ -66,24 +71,28 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
         }
     }
 
-    public async Task<DashboardResponse> GetDashboardAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null)
+    public async Task<DashboardResponse> GetDashboardAsync(
+        Guid childId, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
     {
-        var perApp = await _repository.GetPerAppAggregatesAsync(
-            childId, DateTime.UtcNow.Date.AddDays(-(PerAppWindowDays - 1)), applicationIds);
+        var today = DateTime.UtcNow.Date;
+        var (windowStart, windowEnd, untilExclusive) = ResolveWindow(fromUtc, toUtc, today);
+
+        var perApp = await _repository.GetPerAppAggregatesAsync(childId, windowStart, untilExclusive, applicationIds);
         var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, applicationIds);
         var activityCount = await _repository.GetActivityCountAsync(childId, applicationIds);
         var stepCompletions = await _repository.GetStepCompletionsAsync(childId, applicationIds);
         var activeDays = await _repository.GetActiveDaysSinceAsync(
-            childId, DateTime.UtcNow.Date.AddDays(-(ConsistencyWindowDays - 1)), applicationIds);
+            childId, today.AddDays(-(ConsistencyWindowDays - 1)), applicationIds);
         var heatmapDays = await _repository.GetActiveDaysSinceAsync(
-            childId, DateTime.UtcNow.Date.AddDays(-(ActivityHeatmapWindowDays - 1)), applicationIds);
-        var dailyUsage = await _repository.GetDailyUsageSinceAsync(
-            childId, DateTime.UtcNow.Date.AddDays(-(DailyUsageWindowDays - 1)), applicationIds);
+            childId, today.AddDays(-(ActivityHeatmapWindowDays - 1)), applicationIds);
+        var dailyUsage = await _repository.GetDailyUsageSinceAsync(childId, windowStart, untilExclusive, applicationIds);
 
         return new DashboardResponse
         {
             ChildId = childId,
             GeneratedAt = DateTime.UtcNow,
+            RangeStart = windowStart,
+            RangeEnd = windowEnd,
             // Round up so any nonzero usage shows as at least 1 minute (matches AppUsageDto.TotalMinutes).
             TotalUsageMinutes = (perApp.Sum(a => a.TotalSeconds) + 59) / 60,
             ActivityCount = activityCount,
@@ -93,21 +102,63 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
             RecentActivities = _mapper.Map<List<RecentActivityDto>>(recent),
             Recommendations = BuildRecommendations(perApp, recent),
             ActiveDays = heatmapDays.ToList(),
-            DailyUsage = BuildDailyUsage(dailyUsage)
+            DailyUsage = BuildDailyUsage(dailyUsage, windowStart, windowEnd)
         };
     }
 
-    // The last 7 days, oldest → newest, every day present (gaps filled with 0),
-    // each day's seconds rounded up to whole minutes. Gives the dashboard a real
-    // per-day bar chart instead of a single "today" bar.
-    private static List<DailyUsageDto> BuildDailyUsage(IReadOnlyList<DailyUsage> reported)
+    public async Task<DailyMetricsResponse> GetDailyMetricsAsync(
+        Guid childId, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
+    {
+        var (windowStart, windowEnd, untilExclusive) = ResolveWindow(fromUtc, toUtc, DateTime.UtcNow.Date);
+        var raw = await _repository.GetDailyActivityMetricsAsync(childId, windowStart, untilExclusive, applicationIds);
+        var byDate = raw.ToDictionary(d => d.Date.Date);
+
+        var days = new List<DailyMetricsDayDto>();
+        for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
+        {
+            byDate.TryGetValue(date, out var m);
+            days.Add(new DailyMetricsDayDto
+            {
+                Date = date,
+                Hints = m?.Hints ?? 0,
+                Completed = m?.Completed ?? 0,
+                NotCompleted = m?.NotCompleted ?? 0,
+                StepBacks = m?.StepBacks ?? 0,
+            });
+        }
+
+        return new DailyMetricsResponse
+        {
+            ChildId = childId,
+            RangeStart = windowStart,
+            RangeEnd = windowEnd,
+            Days = days,
+        };
+    }
+
+    // Resolves the [start, end] usage window (inclusive UTC days) plus the exclusive
+    // upper bound for queries. Defaults to the last 7 days; an explicit range is clamped
+    // to the 90-day lookback so paging back through weeks can't scan unbounded history.
+    private static (DateTime start, DateTime end, DateTime untilExclusive) ResolveWindow(DateTime? fromUtc, DateTime? toUtc, DateTime today)
+    {
+        var end = toUtc?.Date ?? today;
+        if (end > today) end = today;
+        var start = fromUtc?.Date ?? end.AddDays(-(DefaultWindowDays - 1));
+        var earliest = today.AddDays(-(MaxWindowLookbackDays - 1));
+        if (start < earliest) start = earliest;
+        if (start > end) start = end;
+        return (start, end, end.AddDays(1));
+    }
+
+    // Per-day usage across [windowStart, windowEnd], oldest → newest, every day present
+    // (gaps filled with 0), each day's seconds rounded up to whole minutes. Gives the
+    // dashboard a real per-day bar chart instead of a single "today" bar.
+    private static List<DailyUsageDto> BuildDailyUsage(IReadOnlyList<DailyUsage> reported, DateTime windowStart, DateTime windowEnd)
     {
         var byDate = reported.ToDictionary(d => d.Date.Date, d => d.TotalSeconds);
-        var today = DateTime.UtcNow.Date;
-        var result = new List<DailyUsageDto>(DailyUsageWindowDays);
-        for (var i = DailyUsageWindowDays - 1; i >= 0; i--)
+        var result = new List<DailyUsageDto>();
+        for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
         {
-            var date = today.AddDays(-i);
             var seconds = byDate.TryGetValue(date, out var s) ? s : 0;
             result.Add(new DailyUsageDto { Date = date, Minutes = (seconds + 59) / 60 });
         }

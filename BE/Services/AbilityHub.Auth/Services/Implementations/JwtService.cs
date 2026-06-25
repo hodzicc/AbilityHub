@@ -28,11 +28,16 @@ public class JwtService(IConfiguration config) : IJwtService
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // Access-token lifetime is configurable (Jwt:AccessTokenMinutes); default 8h so a
+        // normal sitting doesn't expire mid-use. The refresh token (7d) still bounds the
+        // overall session.
+        var accessTokenMinutes = _config.GetValue<int?>("Jwt:AccessTokenMinutes") ?? 480;
+
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(15),
+            expires: DateTime.UtcNow.AddMinutes(accessTokenMinutes),
             signingCredentials: creds
         );
 

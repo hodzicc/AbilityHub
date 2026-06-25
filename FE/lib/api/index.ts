@@ -142,6 +142,10 @@ export interface ChildApplicationResponse {
 export interface DashboardResponse {
   childId: string
   generatedAt: string
+  // Inclusive first/last UTC day (ISO) of the usage window this dashboard covers —
+  // backs the statistics page's range label and week-navigation bounds.
+  rangeStart: string
+  rangeEnd: string
   totalUsageMinutes: number
   activityCount: number
   // Real step-level progress (0–100) and 7-day routine consistency (0–1).
@@ -161,6 +165,21 @@ export interface DashboardResponse {
 export interface DailyUsageDto {
   date: string
   minutes: number
+}
+
+export interface DailyMetricsDay {
+  date: string
+  hints: number
+  completed: number
+  notCompleted: number
+  stepBacks: number
+}
+
+export interface DailyMetricsResponse {
+  childId: string
+  rangeStart: string
+  rangeEnd: string
+  days: DailyMetricsDay[]
 }
 
 export interface AppUsageDto {
@@ -385,13 +404,32 @@ export async function apiSetRestriction(
  * this is how the statistics page's app-category filter is applied server-side.
  * Omit it for everything; pass an empty array to explicitly return nothing.
  */
-export async function apiGetDashboard(childId: string, applicationIds?: string[]): Promise<DashboardResponse> {
-  const query = applicationIds ? `?applicationIds=${encodeURIComponent(applicationIds.join(','))}` : ''
+export async function apiGetDashboard(
+  childId: string,
+  applicationIds?: string[],
+  range?: { from: string; to: string },
+): Promise<DashboardResponse> {
+  const params = new URLSearchParams()
+  if (applicationIds) params.set('applicationIds', applicationIds.join(','))
+  if (range) { params.set('from', range.from); params.set('to', range.to) }
+  const query = params.toString() ? `?${params.toString()}` : ''
   return apiFetch(`/api/usage/children/${childId}/dashboard${query}`)
 }
 
 export async function apiGetLimitStatus(childId: string, appId: string): Promise<LimitStatusResponse> {
   return apiFetch(`/api/usage/children/${childId}/apps/${appId}/limit-status`)
+}
+
+export async function apiGetDailyMetrics(
+  childId: string,
+  applicationIds?: string[],
+  range?: { from: string; to: string },
+): Promise<DailyMetricsResponse> {
+  const params = new URLSearchParams()
+  if (applicationIds) params.set('applicationIds', applicationIds.join(','))
+  if (range) { params.set('from', range.from); params.set('to', range.to) }
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return apiFetch(`/api/usage/children/${childId}/daily-metrics${query}`)
 }
 
 // ---------- Weekly parent check-ins ----------
@@ -408,6 +446,10 @@ export async function apiSubmitWeeklyCheckIn(
 
 export async function apiGetWeeklyCheckIns(childId: string): Promise<WeeklyCheckIn[]> {
   return apiFetch(`/api/checkins/children/${childId}`)
+}
+
+export async function apiDeleteWeeklyCheckIn(childId: string, checkInId: string): Promise<void> {
+  return apiFetch(`/api/checkins/children/${childId}/${checkInId}`, { method: 'DELETE' })
 }
 
 // ---------- QR child device pairing ----------

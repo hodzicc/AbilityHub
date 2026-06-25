@@ -7,6 +7,11 @@ namespace AbilityHub.Usage.Repositories
     /// <summary>Step-completion pair for a single activity (both non-null, Total &gt; 0).</summary>
     public record StepCompletion(int Completed, int Total);
 
+    /// <summary>Per-day rollup of activity outcome metrics for the metrics chart.
+    /// Hints/StepBacks are summed across all activities that day; Completed/NotCompleted
+    /// count finished attempts (an in-progress attempt counts toward neither).</summary>
+    public record DailyActivityMetrics(DateTime Date, int Hints, int Completed, int NotCompleted, int StepBacks);
+
     /// <summary>Total usage seconds on a single (UTC) calendar day.</summary>
     public record DailyUsage(DateTime Date, long TotalSeconds);
 
@@ -32,11 +37,12 @@ namespace AbilityHub.Usage.Repositories
 
         /// <summary>
         /// Per-app totals for a child (time, session count, last used) over sessions
-        /// started on/after <paramref name="sinceUtc"/>, optionally restricted to one
-        /// set of application ids (used for category filtering, since app category
-        /// lives in AppRegistry and is resolved by the caller).
+        /// started in [<paramref name="sinceUtc"/>, <paramref name="untilUtc"/>) — pass
+        /// null for <paramref name="untilUtc"/> for an open-ended window. Optionally
+        /// restricted to one set of application ids (used for category filtering, since
+        /// app category lives in AppRegistry and is resolved by the caller).
         /// </summary>
-        Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null);
+        Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null);
 
         /// <summary>Most recent activities for a child, optionally restricted to a set of application ids.</summary>
         Task<IReadOnlyList<ActivityRecord>> GetRecentActivitiesAsync(Guid childId, int limit, IReadOnlyCollection<Guid>? applicationIds = null);
@@ -47,13 +53,21 @@ namespace AbilityHub.Usage.Repositories
         Task<long> GetUsageSecondsSinceAsync(Guid childId, Guid applicationId, DateTime sinceUtc);
 
         /// <summary>
-        /// Total usage seconds per UTC day for a child since <paramref name="sinceUtc"/>
-        /// (only days with usage are returned), optionally restricted to a set of apps.
+        /// Total usage seconds per UTC day for a child over [<paramref name="sinceUtc"/>,
+        /// <paramref name="untilUtc"/>) (only days with usage are returned; pass null for
+        /// <paramref name="untilUtc"/> for an open-ended window), optionally restricted to a set of apps.
         /// </summary>
-        Task<IReadOnlyList<DailyUsage>> GetDailyUsageSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null);
+        Task<IReadOnlyList<DailyUsage>> GetDailyUsageSinceAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null);
 
         /// <summary>Step-completion pairs across activities that reported steps (for avg progress).</summary>
         Task<IReadOnlyList<StepCompletion>> GetStepCompletionsAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null);
+
+        /// <summary>
+        /// Per-UTC-day activity outcome metrics (hints, completed, not-completed, step-backs)
+        /// over [<paramref name="sinceUtc"/>, <paramref name="untilUtc"/>); only days with
+        /// activity are returned. Optionally restricted to a set of apps.
+        /// </summary>
+        Task<IReadOnlyList<DailyActivityMetrics>> GetDailyActivityMetricsAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null);
 
         /// <summary>Distinct UTC dates on which the child completed any activity since <paramref name="sinceUtc"/>.</summary>
         Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null);

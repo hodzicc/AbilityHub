@@ -41,6 +41,14 @@ public class CheckInsController : ControllerBase
         return Ok(await _checkIns.GetForChildAsync(childId));
     }
 
+    // DELETE: api/checkins/children/{childId}/{checkInId} — remove one evaluation.
+    [HttpDelete("{checkInId:guid}")]
+    public async Task<IActionResult> Delete(Guid childId, Guid checkInId)
+    {
+        if (!await CanManageChildAsync(childId)) return Forbid();
+        return await _checkIns.DeleteAsync(childId, checkInId) ? NoContent() : NotFound();
+    }
+
     // A parent evaluation is authored about a child by their guardian (or an admin).
     private async Task<bool> CanManageChildAsync(Guid childId)
     {

@@ -200,6 +200,29 @@ Default dev ports (HTTP, `ASPNETCORE_ENVIRONMENT=Development`):
 Everything goes through the Gateway at `http://localhost:5046` when run this way (the
 individual service ports are only useful for debugging one service directly).
 
+### Inter-service URLs (local dev)
+
+Some services call others directly (not through the Gateway) for server-to-server
+lookups. The committed `appsettings.json` points these at the Docker service names
+(e.g. `http://appregistry:8080`), which don't resolve under local `dotnet run`, so each
+service's `appsettings.Development.json` must override them with `localhost:<dev-port>`.
+If one of these is missing, the call silently fails (the assignment lookup returns an
+empty list, for example) — symptom: **child QR / password login is rejected for every
+child** with "This app is not assigned to you."
+
+Required `Services:*` overrides in each service's `appsettings.Development.json`:
+
+| Service | Required `Services:*` keys (Development) |
+|---|---|
+| Auth | `UsersBaseUrl` → `http://localhost:5290`, `AppRegistryBaseUrl` → `http://localhost:5125` |
+| Users | _(none — Users calls no other service)_ |
+| AppRegistry | `UsersBaseUrl` → `http://localhost:5290` |
+| Settings | `UsersBaseUrl` → `http://localhost:5290` |
+| Usage | `UsersBaseUrl` → `http://localhost:5290`, `SettingsBaseUrl` → `http://localhost:5253` |
+
+When adding a new cross-service call, add the matching `Services:*BaseUrl` override here
+too, or it will fall back to the Docker hostname and fail under local `dotnet run`.
+
 From the repository root, [`start-all.ps1`](../start-all.ps1) automates all of the above —
 infrastructure containers, all six services (each in its own PowerShell window), and the
 frontend — for a one-command local stack on Windows.

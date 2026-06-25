@@ -72,10 +72,11 @@ namespace AbilityHub.Usage.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null)
+        public async Task<IReadOnlyList<AppUsageAggregate>> GetPerAppAggregatesAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null)
             => await _context.UsageSessions
                 .AsNoTracking()
                 .Where(s => s.ChildId == childId && s.StartedAt >= sinceUtc)
+                .Where(s => untilUtc == null || s.StartedAt < untilUtc)
                 .Where(s => applicationIds == null || applicationIds.Contains(s.ApplicationId))
                 .GroupBy(s => s.ApplicationId)
                 .Select(g => new AppUsageAggregate(
@@ -107,10 +108,11 @@ namespace AbilityHub.Usage.Repositories
                 .Where(s => s.ChildId == childId && s.ApplicationId == applicationId && s.StartedAt >= sinceUtc)
                 .SumAsync(s => (long)s.DurationSeconds);
 
-        public async Task<IReadOnlyList<DailyUsage>> GetDailyUsageSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null)
+        public async Task<IReadOnlyList<DailyUsage>> GetDailyUsageSinceAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null)
             => await _context.UsageSessions
                 .AsNoTracking()
                 .Where(s => s.ChildId == childId && s.StartedAt >= sinceUtc)
+                .Where(s => untilUtc == null || s.StartedAt < untilUtc)
                 .Where(s => applicationIds == null || applicationIds.Contains(s.ApplicationId))
                 .GroupBy(s => s.StartedAt.Date)
                 .Select(g => new DailyUsage(g.Key, g.Sum(s => (long)s.DurationSeconds)))
@@ -123,6 +125,26 @@ namespace AbilityHub.Usage.Repositories
                 .Where(a => applicationIds == null || applicationIds.Contains(a.ApplicationId))
                 .Where(a => a.StepsCompleted != null && a.StepsTotal != null && a.StepsTotal > 0)
                 .Select(a => new StepCompletion(a.StepsCompleted!.Value, a.StepsTotal!.Value))
+                .ToListAsync();
+
+        public async Task<IReadOnlyList<DailyActivityMetrics>> GetDailyActivityMetricsAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null)
+            => await _context.ActivityRecords
+                .AsNoTracking()
+                .Where(a => a.ChildId == childId && a.OccurredAt >= sinceUtc)
+                .Where(a => untilUtc == null || a.OccurredAt < untilUtc)
+                .Where(a => applicationIds == null || applicationIds.Contains(a.ApplicationId))
+                .GroupBy(a => a.OccurredAt.Date)
+                .Select(g => new DailyActivityMetrics(
+                    g.Key,
+                    g.Sum(a => a.HintsShown ?? 0),
+                    // Completed: explicitly finished, or every step done.
+                    g.Count(a => a.CompletedViaAction == true
+                        || (a.StepsTotal != null && a.StepsTotal > 0 && a.StepsCompleted == a.StepsTotal)),
+                    // Not completed: a finished attempt that didn't reach the end (in-progress excluded).
+                    g.Count(a => a.InProgress == false
+                        && !(a.CompletedViaAction == true
+                            || (a.StepsTotal != null && a.StepsTotal > 0 && a.StepsCompleted == a.StepsTotal))),
+                    g.Sum(a => a.ErrorsCount ?? 0)))
                 .ToListAsync();
 
         public async Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null)

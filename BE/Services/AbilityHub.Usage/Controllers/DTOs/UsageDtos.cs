@@ -74,6 +74,13 @@ public class DashboardResponse
 {
     public Guid ChildId { get; set; }
     public DateTime GeneratedAt { get; set; }
+
+    /// <summary>Inclusive first/last UTC day of the usage window this dashboard covers
+    /// (per-app totals, daily usage, total minutes). Lets the frontend label the range
+    /// and bound its week navigation.</summary>
+    public DateTime RangeStart { get; set; }
+    public DateTime RangeEnd { get; set; }
+
     public long TotalUsageMinutes { get; set; }
     public int ActivityCount { get; set; }
 
@@ -112,6 +119,27 @@ public class DailyUsageDto
 {
     public DateTime Date { get; set; }
     public long Minutes { get; set; }
+}
+
+/// <summary>Per-day activity outcome metrics over a window — backs the statistics
+/// "activity outcomes" chart (hints, completed, not-completed, step-backs per day).</summary>
+public class DailyMetricsResponse
+{
+    public Guid ChildId { get; set; }
+    public DateTime RangeStart { get; set; }
+    public DateTime RangeEnd { get; set; }
+    public List<DailyMetricsDayDto> Days { get; set; } = new();
+}
+
+public class DailyMetricsDayDto
+{
+    public DateTime Date { get; set; }
+    public int Hints { get; set; }
+    public int Completed { get; set; }
+    public int NotCompleted { get; set; }
+    /// <summary>Wrong selections, skipped steps, or returns to a previous step — surfaced
+    /// to parents as "step-backs" rather than "errors".</summary>
+    public int StepBacks { get; set; }
 }
 
 /// <summary>An activity as surfaced on the dashboard, carrying its id, owning app and metrics.</summary>
