@@ -77,6 +77,7 @@ builder.Services.AddAuthorization();
 // Service-to-service clients: guardian authorization (Users) + restriction limits (Settings).
 builder.Services.AddUsersServiceClient(builder.Configuration);
 builder.Services.AddSettingsServiceClient(builder.Configuration);
+builder.Services.AddAppRegistryServiceClient(builder.Configuration);
 
 var app = builder.Build();
 

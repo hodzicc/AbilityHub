@@ -19,8 +19,9 @@ import { FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import type { Application, Child, UIPreferences } from '@/lib/types'
 import { ArrowLeft, Calendar, Clock, AppWindow, Lightbulb, Sparkles, Plus, ShieldCheck, Pencil } from 'lucide-react'
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -137,7 +138,13 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
   const age = calculateAge(child.dateOfBirth)
   const totalUsage = dashboard?.totalUsageMinutes ?? 0
   const recommendations = dashboard?.recommendations ?? []
-  const usageChartData = assignedApps.map(a => ({ date: a.app.name.slice(0, 12), usage: a.totalMinutes }))
+  // One bar per app, not a line — apps are discrete categories, not points along a
+  // continuous axis, so a line/area chart implies a trend between them that isn't real.
+  const usageChartData = assignedApps.map(a => ({
+    name: a.app.name.slice(0, 12),
+    usage: a.totalMinutes,
+    color: a.app.color,
+  }))
 
   const getGenderColor = (g: string) =>
     g === 'male'
@@ -214,7 +221,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
               {recommendations.map((rec, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
                   <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
-                  <span>{rec}</span>
+                  <span>{t(`children.recommendations.${rec.type}`, rec.params)}</span>
                 </li>
               ))}
             </ul>
@@ -313,15 +320,9 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
               <CardContent>
                 <div className="h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={usageChartData}>
-                      <defs>
-                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
+                    <BarChart data={usageChartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false}
+                      <XAxis dataKey="name" axisLine={false} tickLine={false}
                         tick={{ fill: axisColor, fontSize: 12 }} />
                       <YAxis axisLine={false} tickLine={false}
                         tick={{ fill: axisColor, fontSize: 12 }} allowDecimals={false} />
@@ -335,8 +336,12 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
                         itemStyle={{ color: tooltipText }}
                         formatter={(v: number) => [`${v} min`, t('dashboard.usageTooltip')]}
                       />
-                      <Area type="monotone" dataKey="usage" stroke="#6366f1" strokeWidth={2} fill="url(#areaGrad)" />
-                    </AreaChart>
+                      <Bar dataKey="usage" radius={[6, 6, 0, 0]} minPointSize={4}>
+                        {usageChartData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color || '#6366f1'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>

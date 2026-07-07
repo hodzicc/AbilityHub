@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
 import { apiGetRestriction, apiSetRestriction, apiGetLimitStatus, type LimitStatusResponse } from '@/lib/api'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
@@ -69,8 +70,9 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
   const handleSave = async () => {
     setSaving(true)
     try {
+      const clampedLimit = Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, timeLimit))
       await apiSetRestriction(childId, appId, {
-        dailyTimeLimitMinutes: hasTimeLimit ? timeLimit : null,
+        dailyTimeLimitMinutes: hasTimeLimit ? clampedLimit : null,
         isBlocked,
       })
       toast.success(t('timeLimit.saved'))
@@ -124,12 +126,29 @@ export function TimeLimitDialog({ open, onOpenChange, childId, appId, appName, o
 
             {hasTimeLimit && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <Label>{t('timeLimit.dailyLimitMinutes')}</Label>
-                  <span className="text-sm font-medium">{timeLimit} {t('common.minutesShort')}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={MIN_LIMIT}
+                      max={MAX_LIMIT}
+                      step={5}
+                      value={timeLimit}
+                      onChange={e => {
+                        const raw = Number(e.target.value)
+                        if (!Number.isNaN(raw)) setTimeLimit(raw)
+                      }}
+                      onBlur={() => setTimeLimit(v => Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, v)))}
+                      disabled={saving}
+                      className="h-8 w-16 text-right"
+                    />
+                    <span className="text-sm text-muted-foreground">{t('common.minutesShort')}</span>
+                  </div>
                 </div>
                 <Slider
-                  value={[timeLimit]}
+                  value={[Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, timeLimit))]}
                   onValueChange={([value]) => setTimeLimit(value)}
                   min={MIN_LIMIT}
                   max={MAX_LIMIT}

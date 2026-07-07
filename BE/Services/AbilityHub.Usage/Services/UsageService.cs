@@ -6,7 +6,11 @@ using AbilityHub.Usage.Repositories;
 
 namespace AbilityHub.Usage.Services;
 
-public class UsageService(IUsageRepository repository, ISettingsServiceClient settingsClient, IMapper mapper) : IUsageService
+public class UsageService(
+    IUsageRepository repository,
+    ISettingsServiceClient settingsClient,
+    IAppRegistryServiceClient appRegistryClient,
+    IMapper mapper) : IUsageService
 {
     private const int RecentActivityLimit = 20;
     private const int ConsistencyWindowDays = 7;
@@ -21,6 +25,7 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
 
     private readonly IUsageRepository _repository = repository;
     private readonly ISettingsServiceClient _settingsClient = settingsClient;
+    private readonly IAppRegistryServiceClient _appRegistryClient = appRegistryClient;
     private readonly IMapper _mapper = mapper;
 
     public async Task ReportAsync(Guid childId, UsageReportRequest report)
@@ -100,7 +105,7 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
             WeeklyConsistency = ComputeWeeklyConsistency(activeDays),
             PerApp = _mapper.Map<List<AppUsageDto>>(perApp.OrderByDescending(a => a.TotalSeconds)),
             RecentActivities = _mapper.Map<List<RecentActivityDto>>(recent),
-            Recommendations = BuildRecommendations(perApp, recent),
+            Recommendations = await BuildRecommendationsAsync(perApp, recent),
             ActiveDays = heatmapDays.ToList(),
             DailyUsage = BuildDailyUsage(dailyUsage, windowStart, windowEnd)
         };
@@ -181,6 +186,55 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
         return Math.Round(Math.Min(activeDays.Count, ConsistencyWindowDays) / (double)ConsistencyWindowDays, 2);
     }
 
+    private const int AdminRecentActivityLimit = 20;
+
+    public async Task<AdminDashboardResponse> GetAdminDashboardAsync()
+    {
+        var today = DateTime.UtcNow.Date;
+        var windowStart = today.AddDays(-(DefaultWindowDays - 1));
+
+        var dailyUsage = await _repository.GetDailyUsageAllSinceAsync(windowStart);
+        var stepCompletions = await _repository.GetStepCompletionsAllAsync();
+        var recent = await _repository.GetRecentActivitiesAllAsync(AdminRecentActivityLimit);
+        var activeChildren = await _repository.GetActiveChildrenCountSinceAsync(windowStart);
+
+        var byDate = dailyUsage.ToDictionary(d => d.Date.Date, d => d.TotalSeconds);
+
+        return new AdminDashboardResponse
+        {
+            GeneratedAt = DateTime.UtcNow,
+            ActiveChildrenCount = activeChildren,
+            TotalUsageMinutesToday = (byDate.GetValueOrDefault(today) + 59) / 60,
+            AvgProgressPercent = ComputeAvgProgressPercent(stepCompletions),
+            DailyUsage = BuildDailyUsage(dailyUsage, windowStart, today),
+            RecentActivities = _mapper.Map<List<RecentActivityDto>>(recent),
+        };
+    }
+
+    public async Task<CalendarMonthResponse> GetCalendarMonthAsync(
+        Guid childId, int year, int month, IReadOnlyCollection<Guid>? applicationIds = null)
+    {
+        var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEnd = monthStart.AddMonths(1);
+
+        var activeDays = await _repository.GetActiveDaysSinceAsync(childId, monthStart, applicationIds, monthEnd);
+
+        return new CalendarMonthResponse
+        {
+            ChildId = childId,
+            Year = year,
+            Month = month,
+            ActiveDays = activeDays.ToList(),
+        };
+    }
+
+    public async Task<List<RecentActivityDto>> GetActivitiesOnDateAsync(
+        Guid childId, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null)
+    {
+        var activities = await _repository.GetActivitiesOnDateAsync(childId, date, applicationIds);
+        return _mapper.Map<List<RecentActivityDto>>(activities);
+    }
+
     public async Task<LimitStatusResponse> GetLimitStatusAsync(Guid childId, Guid applicationId)
     {
         var restriction = await _settingsClient.GetRestrictionAsync(childId, applicationId)
@@ -207,20 +261,31 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
     }
 
     // Simple rule-based recommendations — a placeholder for a richer recommender.
-    private static List<string> BuildRecommendations(
+    // Returned as a type + params rather than a formatted sentence: the backend has
+    // no notion of the caller's locale, so the frontend renders the actual text via
+    // its own i18n, the same way every other piece of UI copy is localized.
+    private async Task<List<RecommendationDto>> BuildRecommendationsAsync(
         IReadOnlyList<AppUsageAggregate> perApp,
         IReadOnlyList<ActivityRecord> recent)
     {
-        var recommendations = new List<string>();
+        var recommendations = new List<RecommendationDto>();
 
         if (perApp.Count == 0)
         {
-            recommendations.Add("No usage recorded yet — explore the assigned apps to get started.");
+            recommendations.Add(new RecommendationDto { Type = "no_usage" });
             return recommendations;
         }
 
         var leastUsed = perApp.OrderBy(a => a.TotalSeconds).First();
-        recommendations.Add($"Try spending more time on application {leastUsed.ApplicationId} — it has the least usage so far.");
+        var leastUsedName = await _appRegistryClient.GetApplicationNameAsync(leastUsed.ApplicationId);
+        // Skip the recommendation rather than fall back to a raw app id — a GUID in
+        // the message is confusing regardless of locale.
+        if (leastUsedName is not null)
+            recommendations.Add(new RecommendationDto
+            {
+                Type = "least_used_app",
+                Params = { ["appName"] = leastUsedName }
+            });
 
         var weakest = recent
             .Where(a => a.Score.HasValue)
@@ -230,7 +295,11 @@ public class UsageService(IUsageRepository repository, ISettingsServiceClient se
             .FirstOrDefault();
 
         if (weakest is not null)
-            recommendations.Add($"Practice more '{weakest.Type}' activities (recent average score {weakest.Avg:0.0}).");
+            recommendations.Add(new RecommendationDto
+            {
+                Type = "weak_activity_type",
+                Params = { ["activityType"] = weakest.Type, ["avgScore"] = weakest.Avg.ToString("0.0") }
+            });
 
         return recommendations;
     }

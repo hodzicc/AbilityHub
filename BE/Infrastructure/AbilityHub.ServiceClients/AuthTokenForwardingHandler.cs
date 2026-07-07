@@ -14,7 +14,8 @@ public class AuthTokenForwardingHandler(IHttpContextAccessor httpContextAccessor
     {
         var authorization = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
 
-        if (!string.IsNullOrWhiteSpace(authorization))
+        // Don't clobber a token the caller already set explicitly on this request.
+        if (!string.IsNullOrWhiteSpace(authorization) && !request.Headers.Contains("Authorization"))
             request.Headers.TryAddWithoutValidation("Authorization", authorization);
 
         return base.SendAsync(request, cancellationToken);

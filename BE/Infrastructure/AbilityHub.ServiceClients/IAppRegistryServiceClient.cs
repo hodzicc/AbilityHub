@@ -13,4 +13,10 @@ public interface IAppRegistryServiceClient
     /// lets a child read their own assignments). Returns empty on any error.
     /// </summary>
     Task<IReadOnlyList<string>> GetAssignedAppKeysAsync(Guid childId, string accessToken);
+
+    /// <summary>
+    /// The display name of an app in the catalog, or null if it doesn't exist / the
+    /// lookup fails. Forwards the current caller's bearer token automatically.
+    /// </summary>
+    Task<string?> GetApplicationNameAsync(Guid applicationId);
 }

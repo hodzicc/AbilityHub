@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using AbilityHub.AppRegistry.Controllers.DTOs;
 using AbilityHub.AppRegistry.Entities;
 using AbilityHub.AppRegistry.Repositories;
+using AbilityHub.AppRegistry.Services;
 using AbilityHub.Shared.Common;
 
 namespace AbilityHub.AppRegistry.Controllers;
@@ -15,11 +16,13 @@ namespace AbilityHub.AppRegistry.Controllers;
 public class ApplicationsController : ControllerBase
 {
     private readonly IApplicationRepository _applications;
+    private readonly IChildAppService _childApps;
     private readonly IMapper _mapper;
 
-    public ApplicationsController(IApplicationRepository applications, IMapper mapper)
+    public ApplicationsController(IApplicationRepository applications, IChildAppService childApps, IMapper mapper)
     {
         _applications = applications;
+        _childApps = childApps;
         _mapper = mapper;
     }
 
@@ -39,6 +42,14 @@ public class ApplicationsController : ControllerBase
         var app = await _applications.GetByIdAsync(id);
         return app is null ? NotFound() : Ok(_mapper.Map<ApplicationResponse>(app));
     }
+
+    // GET: api/apps/{id}/assignments — which children have this app assigned, across
+    // the whole platform (admin only — this is the app-centric admin detail view;
+    // avoids the caller checking every child's own assignment list one by one).
+    [HttpGet("{id:guid}/assignments")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> GetAssignments(Guid id)
+        => Ok(await _childApps.GetAssignedChildrenAsync(id));
 
     // POST: api/apps — register an app (admin).
     [HttpPost]

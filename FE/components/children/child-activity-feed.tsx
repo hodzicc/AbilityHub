@@ -8,7 +8,7 @@ import { useTranslation, useLanguage } from '@/components/providers'
 import { formatDistanceToNow } from 'date-fns'
 import { bs, enUS } from 'date-fns/locale'
 import { AppWindow } from 'lucide-react'
-import { ACTIVITY_COLORS, ACTIVITY_ICONS, resolveActivityAction } from '@/lib/activity'
+import { ACTIVITY_COLORS, ACTIVITY_ICONS, resolveActivityAction, describeActivity } from '@/lib/activity'
 import type { RecentActivityDto } from '@/lib/api'
 import type { Application } from '@/lib/types'
 import { DEFAULT_APP_COLOR } from '@/lib/constants'
@@ -77,7 +77,7 @@ export function ChildActivityFeed({ activities, apps }: ChildActivityFeedProps) 
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {activity.detail ?? activity.name}
+                        {describeActivity(activity, t)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(new Date(activity.occurredAt), {

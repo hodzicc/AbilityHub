@@ -12,10 +12,11 @@ import { Plus, Search, Users, Info } from 'lucide-react'
 import {
   apiGetChildren,
   apiGetChildApps,
-  apiGetAllUsers,
+  apiGetAllUsersUnpaged,
   apiCreateUser,
   apiUpdateProfile,
   apiDeactivateUser,
+  apiGetDashboard,
   type UserProfileResponse,
 } from '@/lib/api'
 import { ROLE_ID, FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
@@ -44,6 +45,7 @@ export default function ChildrenPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editChild, setEditChild] = useState<Child | null>(null)
   const [deleteChild, setDeleteChild] = useState<Child | null>(null)
+  const [progressById, setProgressById] = useState<Record<string, number>>({})
 
   // `expectId` — a just-created child's id. The profile + guardian link are built
   // asynchronously from an event, so we briefly poll until it appears (read-after-
@@ -55,8 +57,7 @@ export default function ChildrenPage() {
       let profiles: UserProfileResponse[] = []
       for (let attempt = 0; attempt < 6; attempt++) {
         if (user.role === 'admin') {
-          const allUsers = await apiGetAllUsers(1, 200)
-          profiles = allUsers.items.filter(u => u.roleId === ROLE_ID.CHILD)
+          profiles = await apiGetAllUsersUnpaged(ROLE_ID.CHILD)
         } else {
           profiles = await apiGetChildren(user.id)
         }
@@ -65,11 +66,18 @@ export default function ChildrenPage() {
       }
       const enriched = await Promise.all(
         profiles.map(async p => {
-          const apps = await apiGetChildApps(p.id).catch(() => [])
-          return profileToChild(p, user.id, apps.map(a => a.applicationId))
+          const [apps, dashboard] = await Promise.all([
+            apiGetChildApps(p.id).catch(() => []),
+            apiGetDashboard(p.id).catch(() => null),
+          ])
+          return {
+            child: profileToChild(p, user.id, apps.map(a => a.applicationId)),
+            progress: Math.round(dashboard?.avgProgressPercent ?? 0),
+          }
         })
       )
-      setChildren(enriched)
+      setChildren(enriched.map(e => e.child))
+      setProgressById(Object.fromEntries(enriched.map(e => [e.child.id, e.progress])))
     } catch {
       toast.error(t('children.loadError'))
     } finally {
@@ -195,7 +203,7 @@ export default function ChildrenPage() {
             <ChildCard
               key={child.id}
               child={child}
-              progress={0}
+              progress={progressById[child.id] ?? 0}
               onEdit={user?.role === 'admin' ? undefined : () => {
                 setEditChild(child)
                 setIsAddDialogOpen(true)

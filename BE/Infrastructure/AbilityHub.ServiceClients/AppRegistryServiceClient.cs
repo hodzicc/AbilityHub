@@ -13,6 +13,27 @@ public class AppRegistryServiceClient(HttpClient httpClient, ILogger<AppRegistry
     // Subset of AppRegistry's ChildApplicationResponse — only the key is needed.
     private sealed record AssignedApp(string Key);
 
+    // Subset of AppRegistry's ApplicationResponse — only the name is needed.
+    private sealed record ApplicationInfo(string Name);
+
+    public async Task<string?> GetApplicationNameAsync(Guid applicationId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/apps/{applicationId}");
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var app = await response.Content.ReadFromJsonAsync<ApplicationInfo>();
+            return app?.Name;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Application lookup against AppRegistry failed for {ApplicationId}.", applicationId);
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<string>> GetAssignedAppKeysAsync(Guid childId, string accessToken)
     {
         try

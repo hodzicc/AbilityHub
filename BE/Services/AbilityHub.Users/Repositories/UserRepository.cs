@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using AbilityHub.Shared.Common;
 using AbilityHub.Users.Entities;
 
 namespace AbilityHub.Users.Repositories
@@ -10,10 +11,24 @@ namespace AbilityHub.Users.Repositories
         public async Task<User?> GetByIdAsync(Guid id)
             => await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
-        public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize)
+        public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null, int? roleId = null)
         {
-            var query = _context.Users.AsNoTracking()
-                .OrderBy(u => u.LastName).ThenBy(u => u.FirstName);
+            var query = _context.Users.AsNoTracking().AsQueryable();
+
+            if (roleId is not null)
+                query = query.Where(u => u.RoleId == roleId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                // EF translates this to a case-insensitive LIKE on SQL Server's default
+                // collation — matches the frontend's client-side name/email filter it replaces.
+                query = query.Where(u =>
+                    EF.Functions.Like(u.FirstName, $"%{search}%") ||
+                    EF.Functions.Like(u.LastName, $"%{search}%") ||
+                    EF.Functions.Like(u.Email, $"%{search}%"));
+            }
+
+            query = query.OrderBy(u => u.LastName).ThenBy(u => u.FirstName);
 
             var total = await query.CountAsync();
             var items = await query
@@ -23,6 +38,28 @@ namespace AbilityHub.Users.Repositories
 
             return (items, total);
         }
+
+        public async Task<RoleCounts> GetRoleCountsAsync()
+        {
+            var counts = await _context.Users
+                .AsNoTracking()
+                .GroupBy(u => u.RoleId)
+                .Select(g => new { RoleId = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            return new RoleCounts(
+                Total: counts.Sum(c => c.Count),
+                Admins: counts.FirstOrDefault(c => c.RoleId == Roles.AdminId)?.Count ?? 0,
+                Parents: counts.FirstOrDefault(c => c.RoleId == Roles.ParentId)?.Count ?? 0,
+                Children: counts.FirstOrDefault(c => c.RoleId == Roles.ChildId)?.Count ?? 0);
+        }
+
+        public async Task<Dictionary<Guid, int>> GetChildCountsByGuardianAsync()
+            => await _context.GuardianChildren
+                .AsNoTracking()
+                .GroupBy(gc => gc.GuardianId)
+                .Select(g => new { GuardianId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.GuardianId, g => g.Count);
 
         public async Task<bool> ExistsAsync(Guid id)
             => await _context.Users.AnyAsync(u => u.Id == id);

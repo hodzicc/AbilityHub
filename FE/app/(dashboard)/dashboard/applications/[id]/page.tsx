@@ -30,8 +30,9 @@ import { toast } from 'sonner'
 import {
   apiGetApp,
   apiGetChildren,
-  apiGetAllUsers,
+  apiGetUser,
   apiGetChildApps,
+  apiGetAppAssignments,
   apiAssignApp,
   apiRemoveApp,
   apiGetRestriction,
@@ -40,7 +41,7 @@ import {
   type ApplicationResponse,
   type UserProfileResponse,
 } from '@/lib/api'
-import { ROLE_ID, FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
+import { FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
 import { getAppIcon } from '@/lib/app-icons'
 import { responseToApp } from '@/lib/applications'
 
@@ -72,52 +73,80 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
     if (!user) return
     setIsLoading(true)
     try {
-      const [appData, children] = await Promise.all([
-        apiGetApp(id),
-        isAdmin
-          ? apiGetAllUsers(1, 200).then(r => r.items.filter(u => u.roleId === ROLE_ID.CHILD)).catch(() => [] as UserProfileResponse[])
-          : apiGetChildren(user.id).catch(() => [] as UserProfileResponse[]),
-      ])
-
+      const appData = await apiGetApp(id)
       setApp(responseToApp(appData))
       setRawApp(appData)
 
-      const assigned: AssignedChild[] = []
-      const available: Child[] = []
-
-      await Promise.all(
-        children.map(async p => {
-          const childApps = await apiGetChildApps(p.id).catch(() => [])
-          const hasThis = childApps.some(ca => ca.applicationId === id)
-          const child: Child = {
-            id: p.id,
-            name: `${p.firstName} ${p.lastName}`.trim(),
-            firstName: p.firstName,
-            lastName: p.lastName,
-            dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
-            gender: (p.gender as 'male' | 'female') ?? 'male',
-            parentId: user.id,
-            assignedApps: childApps.map(a => a.applicationId),
-            createdAt: new Date(p.createdAt),
-          }
-          if (hasThis) {
-            const restriction = await apiGetRestriction(p.id, id).catch(() => ({
-              dailyTimeLimitMinutes: null,
-              isBlocked: false,
+      if (isAdmin) {
+        // Admin can't edit assignments/restrictions here (both are parent concerns —
+        // the assign dialog and time-limit badge are already hidden for admin), so
+        // this only needs to know WHICH children have the app, not each child's full
+        // assignment list or restriction. One bulk lookup, then one profile fetch per
+        // *assigned* child — bounded by real usage of this app, not every child on
+        // the platform.
+        const assignments = await apiGetAppAssignments(id).catch(() => [])
+        const profiles = await Promise.all(
+          assignments.map(a => apiGetUser(a.childId).catch(() => null))
+        )
+        setAssignedChildren(
+          profiles
+            .filter((p): p is UserProfileResponse => p !== null)
+            .map(p => ({
+              child: {
+                id: p.id,
+                name: `${p.firstName} ${p.lastName}`.trim(),
+                firstName: p.firstName,
+                lastName: p.lastName,
+                dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
+                gender: (p.gender as 'male' | 'female') ?? 'male',
+                parentId: '',
+                assignedApps: [id],
+                createdAt: new Date(p.createdAt),
+              },
+              dailyTimeLimit: 0,
+              totalUsageTime: 0,
             }))
-            assigned.push({
-              child,
-              dailyTimeLimit: restriction.dailyTimeLimitMinutes ?? 0,
-              totalUsageTime: 0, // not tracked in AppRegistry — would need Usage service
-            })
-          } else {
-            available.push(child)
-          }
-        })
-      )
+        )
+        setAvailableChildren([]) // the assign dialog is hidden for admin — nothing needs this
+      } else {
+        const children = await apiGetChildren(user.id).catch(() => [] as UserProfileResponse[])
+        const assigned: AssignedChild[] = []
+        const available: Child[] = []
 
-      setAssignedChildren(assigned)
-      setAvailableChildren(available)
+        await Promise.all(
+          children.map(async p => {
+            const childApps = await apiGetChildApps(p.id).catch(() => [])
+            const hasThis = childApps.some(ca => ca.applicationId === id)
+            const child: Child = {
+              id: p.id,
+              name: `${p.firstName} ${p.lastName}`.trim(),
+              firstName: p.firstName,
+              lastName: p.lastName,
+              dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth) : FALLBACK_DATE_OF_BIRTH,
+              gender: (p.gender as 'male' | 'female') ?? 'male',
+              parentId: user.id,
+              assignedApps: childApps.map(a => a.applicationId),
+              createdAt: new Date(p.createdAt),
+            }
+            if (hasThis) {
+              const restriction = await apiGetRestriction(p.id, id).catch(() => ({
+                dailyTimeLimitMinutes: null,
+                isBlocked: false,
+              }))
+              assigned.push({
+                child,
+                dailyTimeLimit: restriction.dailyTimeLimitMinutes ?? 0,
+                totalUsageTime: 0, // not tracked in AppRegistry — would need Usage service
+              })
+            } else {
+              available.push(child)
+            }
+          })
+        )
+
+        setAssignedChildren(assigned)
+        setAvailableChildren(available)
+      }
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('404')) setNotFoundFlag(true)
       else toast.error(t('applications.loadOneError'))

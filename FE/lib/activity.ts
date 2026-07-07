@@ -1,4 +1,5 @@
 import { Trophy, Play, CheckCircle, Pause, Loader2, type LucideIcon } from 'lucide-react'
+import type { ActivityMetrics } from '@/lib/types'
 
 export type ActivityAction = 'started' | 'completed' | 'paused' | 'achievement' | 'inProgress'
 
@@ -34,4 +35,35 @@ export function activityTypeToAction(type: string): ActivityAction {
  */
 export function resolveActivityAction(type: string, inProgress?: boolean): ActivityAction {
   return inProgress ? 'inProgress' : activityTypeToAction(type)
+}
+
+/**
+ * A short, localized caption for an activity in a feed/list. Prefers deriving text
+ * from the numeric metrics (locale-safe) over the raw `detail` field: apps used to
+ * send `detail` as a pre-formatted Bosnian sentence (e.g. "Završeno 5 koraka..."),
+ * which stays baked into old rows in whatever language it was written in regardless
+ * of the reader's current locale — metrics-derived text is always in the current
+ * locale, old rows included. `detail` is only used as a last resort, for activities
+ * that predate metrics reporting entirely.
+ */
+export function describeActivity(
+  activity: { detail?: string; name: string; inProgress?: boolean; metrics?: ActivityMetrics },
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  const m = activity.metrics
+  if (activity.inProgress && m?.stepsTotal != null) {
+    return t('dashboard.stepProgress', {
+      completed: String(m.stepsCompleted ?? 0),
+      total: String(m.stepsTotal),
+    })
+  }
+  if (m?.stepsTotal != null) {
+    return t('dashboard.activitySummary', {
+      completed: String(m.stepsCompleted ?? 0),
+      total: String(m.stepsTotal),
+      hints: String(m.hintsShown ?? 0),
+      errors: String(m.errorsCount ?? 0),
+    })
+  }
+  return activity.detail || activity.name
 }

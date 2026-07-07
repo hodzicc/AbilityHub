@@ -22,18 +22,43 @@ public class UsersController : ControllerBase
         _mapper = mapper;
     }
 
-    // GET: api/users?page=1&pageSize=20 — full directory (admin only).
+    // GET: api/users?page=1&pageSize=20&search=...&roleId=... — full directory (admin only).
+    // Search matches first name, last name, or email and is applied server-side, so
+    // it works correctly together with pagination instead of only filtering whichever
+    // single page the client happened to have loaded. roleId narrows to one role (e.g.
+    // picking a guardian from the parent list) without the caller paging through everyone.
     [HttpGet]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null, [FromQuery] int? roleId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, total) = await _userRepository.GetPagedAsync(page, pageSize);
+        var (items, total) = await _userRepository.GetPagedAsync(page, pageSize, search, roleId);
 
         return Ok(new PagedResult<UserProfileResponse>(
             _mapper.Map<List<UserProfileResponse>>(items), page, pageSize, total));
+    }
+
+    // GET: api/users/summary — role counts + per-guardian child counts across the
+    // whole directory (admin only), for dashboard cards that must stay accurate no
+    // matter how many users exist — not derived from whatever page is loaded.
+    [HttpGet("summary")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> GetSummary()
+    {
+        var counts = await _userRepository.GetRoleCountsAsync();
+        var childCountsByGuardian = await _userRepository.GetChildCountsByGuardianAsync();
+
+        return Ok(new UserSummaryResponse
+        {
+            TotalUsers = counts.Total,
+            AdminCount = counts.Admins,
+            ParentCount = counts.Parents,
+            ChildCount = counts.Children,
+            ChildCountsByGuardian = childCountsByGuardian,
+        });
     }
 
     // GET: api/users/me — the current user's own profile.

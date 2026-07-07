@@ -22,23 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, Save, Pencil, Trash2, X } from 'lucide-react'
+import { Loader2, Save, Pencil, Trash2, X, BellRing } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DayContext, HelpLevel, Mood, PerformanceQuality, WeeklyCheckIn } from '@/lib/types'
 import { apiGetWeeklyCheckIns, apiSubmitWeeklyCheckIn, apiDeleteWeeklyCheckIn } from '@/lib/api'
+import { currentWeekStart } from '@/lib/utils'
 
 const MOOD_VALUES: Mood[] = ['great', 'good', 'neutral', 'difficult', 'hard']
 const HELP_LEVEL_VALUES: HelpLevel[] = ['none', 'minimal', 'moderate', 'extensive']
 const QUALITY_VALUES: PerformanceQuality[] = ['excellent', 'good', 'partial', 'poor']
 const DAY_CONTEXT_VALUES: DayContext[] = ['normal', 'poor-sleep', 'illness', 'routine-change', 'stress', 'other']
-
-/** Monday (ISO date) of the current week. */
-function currentWeekStart(): string {
-  const d = new Date()
-  const day = d.getDay() || 7
-  d.setDate(d.getDate() - day + 1)
-  return d.toISOString().slice(0, 10)
-}
 
 export function WeeklyCheckInCard({ childId, childName }: { childId: string; childName: string }) {
   const { t, locale } = useTranslation()
@@ -178,9 +171,16 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
               {t('checkins.alreadySubmitted')}
             </p>
           )}
+          {!isEditingPastWeek && !existing && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+              <BellRing className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>{t('checkins.reminderNotSubmitted')}</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('checkins.moodBefore')}</Label>
+              <p className="text-xs text-muted-foreground">{t('checkins.moodBeforeDesc')}</p>
               <Select value={moodBefore} onValueChange={v => setMoodBefore(v as Mood)}>
                 <SelectTrigger><SelectValue placeholder={t('checkins.selectPlaceholder')} /></SelectTrigger>
                 <SelectContent>{MOOD_VALUES.map(m => <SelectItem key={m} value={m}>{t(`checkins.moods.${m}`)}</SelectItem>)}</SelectContent>
@@ -188,6 +188,7 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
             </div>
             <div className="space-y-1.5">
               <Label>{t('checkins.moodAfter')}</Label>
+              <p className="text-xs text-muted-foreground">{t('checkins.moodAfterDesc')}</p>
               <Select value={moodAfter} onValueChange={v => setMoodAfter(v as Mood)}>
                 <SelectTrigger><SelectValue placeholder={t('checkins.selectPlaceholder')} /></SelectTrigger>
                 <SelectContent>{MOOD_VALUES.map(m => <SelectItem key={m} value={m}>{t(`checkins.moods.${m}`)}</SelectItem>)}</SelectContent>
@@ -197,6 +198,7 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
 
           <div className="space-y-1.5">
             <Label>{t('checkins.helpLevel')}</Label>
+            <p className="text-xs text-muted-foreground">{t('checkins.helpLevelDesc')}</p>
             <Select value={helpLevel} onValueChange={v => setHelpLevel(v as HelpLevel)}>
               <SelectTrigger><SelectValue placeholder={t('checkins.selectPlaceholder')} /></SelectTrigger>
               <SelectContent>{HELP_LEVEL_VALUES.map(h => <SelectItem key={h} value={h}>{t(`checkins.helpLevels.${h}`)}</SelectItem>)}</SelectContent>
@@ -205,6 +207,7 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
 
           <div className="space-y-1.5">
             <Label>{t('checkins.performanceQuality')}</Label>
+            <p className="text-xs text-muted-foreground">{t('checkins.performanceQualityDesc')}</p>
             <Select value={performanceQuality} onValueChange={v => setPerformanceQuality(v as PerformanceQuality)}>
               <SelectTrigger><SelectValue placeholder={t('checkins.selectPlaceholder')} /></SelectTrigger>
               <SelectContent>{QUALITY_VALUES.map(q => <SelectItem key={q} value={q}>{t(`checkins.qualities.${q}`)}</SelectItem>)}</SelectContent>
@@ -212,8 +215,11 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
           </div>
 
           <div className="rounded-lg border p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>{t('checkins.safetyIncident')}</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>{t('checkins.safetyIncident')}</Label>
+                <p className="text-xs text-muted-foreground">{t('checkins.safetyIncidentDesc')}</p>
+              </div>
               <Switch checked={safetyIncident} onCheckedChange={setSafetyIncident} />
             </div>
             {safetyIncident && (
@@ -228,6 +234,7 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
 
           <div className="space-y-1.5">
             <Label>{t('checkins.dayContext')}</Label>
+            <p className="text-xs text-muted-foreground">{t('checkins.dayContextDesc')}</p>
             <Select value={dayContext} onValueChange={v => setDayContext(v as DayContext)}>
               <SelectTrigger><SelectValue placeholder={t('checkins.selectPlaceholder')} /></SelectTrigger>
               <SelectContent>{DAY_CONTEXT_VALUES.map(d => <SelectItem key={d} value={d}>{t(`checkins.dayContexts.${d}`)}</SelectItem>)}</SelectContent>
@@ -242,13 +249,17 @@ export function WeeklyCheckInCard({ childId, childName }: { childId: string; chi
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label>{t('checkins.usesSkillOutsideApp')}</Label>
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div>
+              <Label>{t('checkins.usesSkillOutsideApp')}</Label>
+              <p className="text-xs text-muted-foreground">{t('checkins.usesSkillOutsideAppDesc')}</p>
+            </div>
             <Switch checked={usesSkillOutsideApp} onCheckedChange={setUsesSkillOutsideApp} />
           </div>
 
           <div className="space-y-1.5">
             <Label>{t('checkins.generalNotes')}</Label>
+            <p className="text-xs text-muted-foreground">{t('checkins.generalNotesDesc')}</p>
             <Textarea value={generalNotes} onChange={e => setGeneralNotes(e.target.value)} rows={3} />
           </div>
 

@@ -73,6 +73,32 @@ public class UsageController : ControllerBase
                 .ToList();
     }
 
+    // GET: api/usage/admin/dashboard — platform-wide usage snapshot for admins, computed
+    // across all children on the backend (not one dashboard call per child).
+    [HttpGet("admin/dashboard")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<IActionResult> AdminDashboard() => Ok(await _usage.GetAdminDashboardAsync());
+
+    // GET: api/usage/children/{childId}/calendar?year=2026&month=7 — which days in that
+    // month have any activity, for the statistics calendar's month grid.
+    [HttpGet("children/{childId:guid}/calendar")]
+    public async Task<IActionResult> CalendarMonth(
+        Guid childId, [FromQuery] int year, [FromQuery] int month, [FromQuery] string? applicationIds)
+    {
+        if (!await CanViewChildAsync(childId)) return Forbid();
+        if (month is < 1 or > 12) return BadRequest(new ApiError("invalid_month", "Month must be between 1 and 12."));
+        return Ok(await _usage.GetCalendarMonthAsync(childId, year, month, ParseAppIds(applicationIds)));
+    }
+
+    // GET: api/usage/children/{childId}/activities-on-date?date=2026-07-03 — every
+    // activity the child had that day, for the calendar's day drill-down.
+    [HttpGet("children/{childId:guid}/activities-on-date")]
+    public async Task<IActionResult> ActivitiesOnDate(Guid childId, [FromQuery] DateTime date, [FromQuery] string? applicationIds)
+    {
+        if (!await CanViewChildAsync(childId)) return Forbid();
+        return Ok(await _usage.GetActivitiesOnDateAsync(childId, date, ParseAppIds(applicationIds)));
+    }
+
     // GET: api/usage/children/{childId}/apps/{appId}/limit-status — remaining allowance vs Settings limits.
     [HttpGet("children/{childId:guid}/apps/{appId:guid}/limit-status")]
     public async Task<IActionResult> LimitStatus(Guid childId, Guid appId)

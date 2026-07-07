@@ -33,7 +33,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     { href: '/dashboard',              icon: Home,      label: t('nav.dashboard'),     color: 'text-indigo-300' },
     { href: '/dashboard/children',     icon: Users,     label: t('nav.children'),      color: 'text-orange-300' },
     { href: '/dashboard/applications', icon: AppWindow, label: t('nav.applications'),  color: 'text-amber-300' },
-    { href: '/dashboard/statistics',   icon: BarChart3, label: t('nav.statistics'),    color: 'text-emerald-300' },
+    // Per-child statistics (weekly check-ins, heatmap, category filters) don't apply
+    // to admins — their usage-per-app + aggregate figures already live on the dashboard.
+    ...(user?.role !== 'admin'
+      ? [{ href: '/dashboard/statistics', icon: BarChart3, label: t('nav.statistics'), color: 'text-emerald-300' }]
+      : []),
     // UI preferences are per-child, so this item makes no sense for admins (who have no children).
     ...(user?.role !== 'admin'
       ? [{ href: '/dashboard/preferences', icon: Palette, label: t('nav.preferences'), color: 'text-pink-300' }]

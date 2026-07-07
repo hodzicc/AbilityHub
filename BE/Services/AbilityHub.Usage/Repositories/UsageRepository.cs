@@ -147,13 +147,59 @@ namespace AbilityHub.Usage.Repositories
                     g.Sum(a => a.ErrorsCount ?? 0)))
                 .ToListAsync();
 
-        public async Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null)
+        public async Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(
+            Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? untilUtc = null)
             => await _context.ActivityRecords
                 .AsNoTracking()
                 .Where(a => a.ChildId == childId && a.OccurredAt >= sinceUtc)
+                .Where(a => untilUtc == null || a.OccurredAt < untilUtc)
                 .Where(a => applicationIds == null || applicationIds.Contains(a.ApplicationId))
                 .Select(a => a.OccurredAt.Date)
                 .Distinct()
                 .ToListAsync();
+
+        public async Task<IReadOnlyList<ActivityRecord>> GetActivitiesOnDateAsync(
+            Guid childId, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null)
+        {
+            var start = date.Date;
+            var end = start.AddDays(1);
+            return await _context.ActivityRecords
+                .AsNoTracking()
+                .Where(a => a.ChildId == childId && a.OccurredAt >= start && a.OccurredAt < end)
+                .Where(a => applicationIds == null || applicationIds.Contains(a.ApplicationId))
+                .OrderByDescending(a => a.OccurredAt)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<DailyUsage>> GetDailyUsageAllSinceAsync(DateTime sinceUtc, DateTime? untilUtc = null)
+            => await _context.UsageSessions
+                .AsNoTracking()
+                .Where(s => s.StartedAt >= sinceUtc)
+                .Where(s => untilUtc == null || s.StartedAt < untilUtc)
+                .GroupBy(s => s.StartedAt.Date)
+                .Select(g => new DailyUsage(g.Key, g.Sum(s => (long)s.DurationSeconds)))
+                .ToListAsync();
+
+        public async Task<IReadOnlyList<StepCompletion>> GetStepCompletionsAllAsync()
+            => await _context.ActivityRecords
+                .AsNoTracking()
+                .Where(a => a.StepsCompleted != null && a.StepsTotal != null && a.StepsTotal > 0)
+                .Select(a => new StepCompletion(a.StepsCompleted!.Value, a.StepsTotal!.Value))
+                .ToListAsync();
+
+        public async Task<IReadOnlyList<ActivityRecord>> GetRecentActivitiesAllAsync(int limit)
+            => await _context.ActivityRecords
+                .AsNoTracking()
+                .OrderByDescending(a => a.OccurredAt)
+                .Take(limit)
+                .ToListAsync();
+
+        public async Task<int> GetActiveChildrenCountSinceAsync(DateTime sinceUtc)
+            => await _context.ActivityRecords
+                .AsNoTracking()
+                .Where(a => a.OccurredAt >= sinceUtc)
+                .Select(a => a.ChildId)
+                .Distinct()
+                .CountAsync();
     }
 }

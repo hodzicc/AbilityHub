@@ -40,16 +40,21 @@ public static class ServiceClientsExtensions
     }
 
     /// <summary>
-    /// Registers a typed client to the AppRegistry service for assignment lookups.
-    /// The caller passes the access token to use per request (e.g. Auth at login uses
-    /// the child's own freshly-minted token), so no token-forwarding handler is wired.
+    /// Registers a typed client to the AppRegistry service. Requests forward the
+    /// current caller's bearer token automatically; callers that need to act on behalf
+    /// of someone else (e.g. Auth at login, using the child's freshly-minted token) can
+    /// still set an explicit Authorization header per-request, which takes precedence.
     /// Base address comes from <c>Services:AppRegistryBaseUrl</c>.
     /// </summary>
     public static IServiceCollection AddAppRegistryServiceClient(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
+        services.AddTransient<AuthTokenForwardingHandler>();
+
         services.AddHttpClient<IAppRegistryServiceClient, AppRegistryServiceClient>(client =>
-            client.BaseAddress = new Uri(configuration["Services:AppRegistryBaseUrl"]
-                ?? throw new InvalidOperationException("Services:AppRegistryBaseUrl is not configured.")));
+                client.BaseAddress = new Uri(configuration["Services:AppRegistryBaseUrl"]
+                    ?? throw new InvalidOperationException("Services:AppRegistryBaseUrl is not configured.")))
+            .AddHttpMessageHandler<AuthTokenForwardingHandler>();
 
         return services;
     }

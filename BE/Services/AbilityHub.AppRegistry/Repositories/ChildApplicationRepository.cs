@@ -14,6 +14,12 @@ namespace AbilityHub.AppRegistry.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+        public async Task<IReadOnlyList<ChildApplication>> GetForApplicationAsync(Guid applicationId)
+            => await _context.ChildApplications
+                .Where(ca => ca.ApplicationId == applicationId)
+                .AsNoTracking()
+                .ToListAsync();
+
         public async Task<bool> ExistsAsync(Guid childId, Guid applicationId)
             => await _context.ChildApplications
                 .AnyAsync(ca => ca.ChildId == childId && ca.ApplicationId == applicationId);

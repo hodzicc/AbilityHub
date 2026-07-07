@@ -31,7 +31,8 @@ public class UsageStatisticsTests
             cfg => cfg.AddProfile<UsageMappingProfile>(), NullLoggerFactory.Instance).CreateMapper();
         var repo = new UsageRepository(db, NullLogger<UsageRepository>.Instance, mapper);
         var settingsClient = new Mock<ISettingsServiceClient>().Object; // not exercised by the dashboard
-        return new UsageService(repo, settingsClient, mapper);
+        var appRegistryClient = new Mock<IAppRegistryServiceClient>().Object; // not exercised by the dashboard
+        return new UsageService(repo, settingsClient, appRegistryClient, mapper);
     }
 
     private static UsageReportRequest CompletedTaskReport(Guid appId)

@@ -99,7 +99,7 @@ public class DashboardResponse
 
     public List<AppUsageDto> PerApp { get; set; } = new();
     public List<RecentActivityDto> RecentActivities { get; set; } = new();
-    public List<string> Recommendations { get; set; } = new();
+    public List<RecommendationDto> Recommendations { get; set; } = new();
 
     /// <summary>
     /// Distinct UTC dates in the last 90 days on which the child completed any
@@ -112,6 +112,29 @@ public class DashboardResponse
     /// gaps filled with 0) — backs the dashboard's weekly bar chart.
     /// </summary>
     public List<DailyUsageDto> DailyUsage { get; set; } = new();
+}
+
+/// <summary>
+/// A recommendation as a translation key + parameters instead of a pre-formatted
+/// sentence — the backend doesn't know the caller's locale, so it hands the frontend
+/// what it needs to render the message in whichever language is active, the same way
+/// every other piece of UI text is localized.
+/// </summary>
+public class RecommendationDto
+{
+    /// <summary>One of "no_usage", "least_used_app", "weak_activity_type" — maps to an i18n key.</summary>
+    public string Type { get; set; } = string.Empty;
+    public Dictionary<string, string> Params { get; set; } = new();
+}
+
+/// <summary>Which days in a given calendar month have any recorded activity — backs
+/// the statistics calendar's month grid (highlighting days, not counts).</summary>
+public class CalendarMonthResponse
+{
+    public Guid ChildId { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public List<DateTime> ActiveDays { get; set; } = new();
 }
 
 /// <summary>Usage minutes on a single UTC calendar day.</summary>
@@ -146,6 +169,7 @@ public class DailyMetricsDayDto
 public class RecentActivityDto
 {
     public Guid Id { get; set; }
+    public Guid ChildId { get; set; }
     public Guid ApplicationId { get; set; }
     public string ActivityType { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -168,6 +192,32 @@ public class AppUsageDto
     public int SessionCount { get; set; }
     public long TotalMinutes { get; set; }
     public DateTime LastUsedAt { get; set; }
+}
+
+/// <summary>
+/// Platform-wide usage snapshot for admins: every figure here is computed across
+/// ALL children in one backend pass, rather than the admin fetching each child's
+/// individual dashboard (which doesn't scale and isn't a meaningful view for someone
+/// who isn't that child's guardian).
+/// </summary>
+public class AdminDashboardResponse
+{
+    public DateTime GeneratedAt { get; set; }
+
+    /// <summary>Distinct children with any recorded activity in the last 7 days.</summary>
+    public int ActiveChildrenCount { get; set; }
+
+    public long TotalUsageMinutesToday { get; set; }
+
+    /// <summary>Average step-completion percentage across every child that reported
+    /// step counts. Null when no activity anywhere reported step counts.</summary>
+    public double? AvgProgressPercent { get; set; }
+
+    /// <summary>Usage minutes per day for the last 7 days, summed across all children
+    /// (oldest → newest, every day present, gaps filled with 0).</summary>
+    public List<DailyUsageDto> DailyUsage { get; set; } = new();
+
+    public List<RecentActivityDto> RecentActivities { get; set; } = new();
 }
 
 // ---- Limit status ----

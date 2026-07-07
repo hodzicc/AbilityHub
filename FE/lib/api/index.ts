@@ -154,12 +154,19 @@ export interface DashboardResponse {
   weeklyConsistency: number | null
   perApp: AppUsageDto[]
   recentActivities: RecentActivityDto[]
-  recommendations: string[]
+  recommendations: RecommendationDto[]
   // Distinct dates in the last 90 days with at least one completed activity —
   // backs the activity heatmap calendar.
   activeDays: string[]
   // Usage minutes per day for the last 7 days (oldest → newest, gaps filled with 0).
   dailyUsage: DailyUsageDto[]
+}
+
+/// A recommendation as a type + params, translated client-side (the backend has no
+/// notion of the caller's locale) — see `children.recommendations.*` in the i18n files.
+export interface RecommendationDto {
+  type: string
+  params: Record<string, string>
 }
 
 export interface DailyUsageDto {
@@ -191,6 +198,7 @@ export interface AppUsageDto {
 
 export interface RecentActivityDto {
   id: string
+  childId: string
   applicationId: string
   activityType: string
   name: string
@@ -203,6 +211,15 @@ export interface RecentActivityDto {
   // Accessibility metrics, embedded per activity. Undefined when the reporting
   // app sent none (frontend renders "Nije dostupno").
   metrics?: ActivityMetrics
+}
+
+export interface AdminDashboardResponse {
+  generatedAt: string
+  activeChildrenCount: number
+  totalUsageMinutesToday: number
+  avgProgressPercent: number | null
+  dailyUsage: DailyUsageDto[]
+  recentActivities: RecentActivityDto[]
 }
 
 export interface RestrictionResponse {
@@ -225,6 +242,14 @@ export interface PagedResult<T> {
   page: number
   pageSize: number
   totalCount: number
+}
+
+export interface UserSummaryResponse {
+  totalUsers: number
+  adminCount: number
+  parentCount: number
+  childCount: number
+  childCountsByGuardian: Record<string, number>
 }
 
 // ---------- Auth ----------
@@ -273,8 +298,38 @@ export async function apiGetUser(id: string): Promise<UserProfileResponse> {
   return apiFetch(`/api/users/${id}`)
 }
 
-export async function apiGetAllUsers(page = 1, pageSize = 50): Promise<PagedResult<UserProfileResponse>> {
-  return apiFetch(`/api/users?page=${page}&pageSize=${pageSize}`)
+export async function apiGetAllUsers(page = 1, pageSize = 50, search?: string, roleId?: number): Promise<PagedResult<UserProfileResponse>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+  if (search) params.set('search', search)
+  if (roleId !== undefined) params.set('roleId', String(roleId))
+  return apiFetch(`/api/users?${params.toString()}`)
+}
+
+/**
+ * The full user directory (optionally filtered by role), fetched a page at a time
+ * until every row has been retrieved — for the rare, deliberate cases that
+ * genuinely need everyone (e.g. resolving names for an admin-wide activity feed),
+ * as opposed to a single bounded page that silently drops rows past the cap.
+ */
+export async function apiGetAllUsersUnpaged(roleId?: number): Promise<UserProfileResponse[]> {
+  const pageSize = 100
+  const all: UserProfileResponse[] = []
+  let page = 1
+  while (true) {
+    const res = await apiGetAllUsers(page, pageSize, undefined, roleId)
+    all.push(...res.items)
+    if (all.length >= res.totalCount || res.items.length === 0) break
+    page++
+  }
+  return all
+}
+
+/**
+ * Role counts + per-guardian child counts across the whole user directory, computed
+ * on the backend in one pass — not derived from a (possibly partial) loaded page.
+ */
+export async function apiGetUserSummary(): Promise<UserSummaryResponse> {
+  return apiFetch('/api/users/summary')
 }
 
 export async function apiUpdateProfile(
@@ -327,6 +382,19 @@ export async function apiGetApp(id: string): Promise<ApplicationResponse> {
 
 export async function apiGetChildApps(childId: string): Promise<ChildApplicationResponse[]> {
   return apiFetch(`/api/apps/children/${childId}`)
+}
+
+export interface AppAssignmentResponse {
+  childId: string
+  assignedAt: string
+}
+
+/**
+ * Every child assignment of a given app, across the whole platform (admin only) —
+ * one call instead of checking each child's own assignment list to see who has it.
+ */
+export async function apiGetAppAssignments(applicationId: string): Promise<AppAssignmentResponse[]> {
+  return apiFetch(`/api/apps/${applicationId}/assignments`)
 }
 
 export async function apiAssignApp(childId: string, applicationId: string): Promise<void> {
@@ -416,6 +484,14 @@ export async function apiGetDashboard(
   return apiFetch(`/api/usage/children/${childId}/dashboard${query}`)
 }
 
+/**
+ * Platform-wide usage snapshot for admins, computed across all children by the
+ * backend in one call — not one dashboard call per child.
+ */
+export async function apiGetAdminDashboard(): Promise<AdminDashboardResponse> {
+  return apiFetch('/api/usage/admin/dashboard')
+}
+
 export async function apiGetLimitStatus(childId: string, appId: string): Promise<LimitStatusResponse> {
   return apiFetch(`/api/usage/children/${childId}/apps/${appId}/limit-status`)
 }
@@ -430,6 +506,36 @@ export async function apiGetDailyMetrics(
   if (range) { params.set('from', range.from); params.set('to', range.to) }
   const query = params.toString() ? `?${params.toString()}` : ''
   return apiFetch(`/api/usage/children/${childId}/daily-metrics${query}`)
+}
+
+export interface CalendarMonthResponse {
+  childId: string
+  year: number
+  month: number
+  activeDays: string[]
+}
+
+/** Which days in a given month have any activity — backs the statistics calendar's month grid. */
+export async function apiGetCalendarMonth(
+  childId: string,
+  year: number,
+  month: number,
+  applicationIds?: string[],
+): Promise<CalendarMonthResponse> {
+  const params = new URLSearchParams({ year: String(year), month: String(month) })
+  if (applicationIds) params.set('applicationIds', applicationIds.join(','))
+  return apiFetch(`/api/usage/children/${childId}/calendar?${params.toString()}`)
+}
+
+/** Every activity a child had on one specific day — backs the calendar's day drill-down. */
+export async function apiGetActivitiesOnDate(
+  childId: string,
+  date: string,
+  applicationIds?: string[],
+): Promise<RecentActivityDto[]> {
+  const params = new URLSearchParams({ date })
+  if (applicationIds) params.set('applicationIds', applicationIds.join(','))
+  return apiFetch(`/api/usage/children/${childId}/activities-on-date?${params.toString()}`)
 }
 
 // ---------- Weekly parent check-ins ----------

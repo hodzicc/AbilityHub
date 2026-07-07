@@ -32,6 +32,15 @@ public class ChildAppService(
         return _mapper.Map<List<ChildApplicationResponse>>(assignments);
     }
 
+    public async Task<IReadOnlyList<AppAssignmentResponse>> GetAssignedChildrenAsync(Guid applicationId)
+    {
+        var assignments = await _childApplicationRepository.GetForApplicationAsync(applicationId);
+
+        return assignments
+            .Select(a => new AppAssignmentResponse { ChildId = a.ChildId, AssignedAt = a.AssignedAt })
+            .ToList();
+    }
+
     public async Task<AssignmentOutcome> AssignAsync(Guid childId, Guid applicationId, Guid guardianId)
     {
         var application = await _applicationRepository.GetByIdAsync(applicationId);

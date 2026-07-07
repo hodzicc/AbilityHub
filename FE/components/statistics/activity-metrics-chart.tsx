@@ -58,6 +58,17 @@ export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
   const [data, setData] = useState<DayPoint[]>([])
   const [rangeLabel, setRangeLabel] = useState('')
   const range = useMemo(() => weekRange(offset), [offset])
+  // Series hidden via the clickable legend — lets a parent isolate e.g. just
+  // "completed" or just "not completed" instead of reading all four lines at once.
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+  const toggleSeries = (key: string) => {
+    setHiddenSeries(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   useEffect(() => {
     // A category that resolves to no apps → nothing to show.
@@ -103,7 +114,9 @@ export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
       </CardHeader>
       <CardContent>
         {hasData ? (
-          <div className="h-[280px] w-full">
+          <div className="w-full">
+            <p className="mb-2 text-xs text-muted-foreground">{t('statistics.activityOutcomesLegendHint')}</p>
+            <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
@@ -114,7 +127,19 @@ export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
                   labelStyle={{ color: tooltipText }}
                   itemStyle={{ color: tooltipText }}
                 />
-                <Legend wrapperStyle={{ color: axisColor, fontSize: 12 }} />
+                <Legend
+                  wrapperStyle={{ color: axisColor, fontSize: 12, cursor: 'pointer' }}
+                  onClick={(e) => { if (e?.dataKey) toggleSeries(String(e.dataKey)) }}
+                  formatter={(value, entry) => {
+                    const key = (entry as { dataKey?: string })?.dataKey ?? ''
+                    const isHidden = hiddenSeries.has(key)
+                    return (
+                      <span style={{ opacity: isHidden ? 0.4 : 1, textDecoration: isHidden ? 'line-through' : 'none' }}>
+                        {value}
+                      </span>
+                    )
+                  }}
+                />
                 {SERIES.map(s => (
                   <Line
                     key={s.key}
@@ -126,10 +151,12 @@ export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
                     strokeDasharray={s.dash}
                     dot={{ r: 2 }}
                     activeDot={{ r: 4 }}
+                    hide={hiddenSeries.has(s.key)}
                   />
                 ))}
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <div className="flex h-[280px] items-center justify-center">

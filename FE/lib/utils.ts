@@ -27,3 +27,12 @@ export function formatShortDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`
   return formatDuration(Math.round(seconds / 60))
 }
+
+/** Monday (ISO date) of the current week — shared so the weekly check-in card and
+ * the dashboard reminder banner agree on what "this week" means. */
+export function currentWeekStart(): string {
+  const d = new Date()
+  const day = d.getDay() || 7
+  d.setDate(d.getDate() - day + 1)
+  return d.toISOString().slice(0, 10)
+}

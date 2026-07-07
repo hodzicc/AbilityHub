@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth, useTranslation, usePreferences } from '@/components/providers'
-import { PageHeader } from '@/components/shared'
+import { PageHeader, ConfirmationDialog } from '@/components/shared'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -38,6 +38,7 @@ export default function PreferencesPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>('')
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingChild, setIsLoadingChild] = useState(false)
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
   const [previewPlatform, setPreviewPlatform] = useState<'mobile' | 'web'>('mobile')
 
   // Load children list on mount
@@ -97,8 +98,11 @@ export default function PreferencesPage() {
     }
   }
 
-  const handleReset = () => {
+  const handleReset = () => setIsResetConfirmOpen(true)
+
+  const confirmReset = () => {
     resetPreferences()
+    setIsResetConfirmOpen(false)
     toast.success(t('settings.resetSuccess'))
   }
 
@@ -184,6 +188,13 @@ export default function PreferencesPage() {
                     </div>
                   ))}
                 </RadioGroup>
+                <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/50 p-3">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
+                    {t(`settings.fontSizeReasons.${preferences.fontSize === 'extra-large' ? 'extraLarge' : preferences.fontSize}`)}
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -212,6 +223,7 @@ export default function PreferencesPage() {
                 <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
                     {t(`settings.fontFamilyReasons.${preferences.fontFamily}`)}
                   </p>
                 </div>
@@ -255,6 +267,7 @@ export default function PreferencesPage() {
                 <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/50 p-3">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
                     {t(`settings.colorSchemeReasons.${preferences.colorScheme === 'high-contrast' ? 'highContrast' : preferences.colorScheme}`)}
                   </p>
                 </div>
@@ -354,6 +367,16 @@ export default function PreferencesPage() {
           {t('common.save')}
         </Button>
       </div>
+
+      <ConfirmationDialog
+        open={isResetConfirmOpen}
+        onOpenChange={setIsResetConfirmOpen}
+        title={t('settings.resetConfirmTitle')}
+        description={t('settings.resetConfirmDesc')}
+        confirmLabel={t('settings.reset')}
+        variant="destructive"
+        onConfirm={confirmReset}
+      />
     </div>
   )
 }

@@ -51,11 +51,16 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(Create), new { id = result.UserId }, result);
     }
 
-    // DELETE: api/auth/users/{id} — deactivate an account (admin only).
+    // DELETE: api/auth/users/{id} — deactivate an account (admin only). An admin can't
+    // deactivate their own account — that could lock the platform out of admin access
+    // with no one left to reactivate it.
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Deactivate(Guid id)
     {
+        if (id == User.GetUserId())
+            return BadRequest(new ApiError("cannot_deactivate_self", "You cannot deactivate your own account."));
+
         var ok = await _service.DeactivateUserAsync(id);
         return ok ? NoContent() : NotFound();
     }

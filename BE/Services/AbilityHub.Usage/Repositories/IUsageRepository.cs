@@ -69,7 +69,32 @@ namespace AbilityHub.Usage.Repositories
         /// </summary>
         Task<IReadOnlyList<DailyActivityMetrics>> GetDailyActivityMetricsAsync(Guid childId, DateTime sinceUtc, DateTime? untilUtc = null, IReadOnlyCollection<Guid>? applicationIds = null);
 
-        /// <summary>Distinct UTC dates on which the child completed any activity since <paramref name="sinceUtc"/>.</summary>
-        Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null);
+        /// <summary>Distinct UTC dates on which the child completed any activity in
+        /// [<paramref name="sinceUtc"/>, <paramref name="untilUtc"/>) — pass null for
+        /// <paramref name="untilUtc"/> for an open-ended window (e.g. the 90-day heatmap),
+        /// or bound it to a specific calendar month (the statistics calendar view).</summary>
+        Task<IReadOnlyList<DateTime>> GetActiveDaysSinceAsync(Guid childId, DateTime sinceUtc, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? untilUtc = null);
+
+        /// <summary>Every activity a child had on one specific UTC calendar day — backs the
+        /// statistics calendar's day drill-down (unlike GetRecentActivitiesAsync, which is
+        /// a fixed-size "most recent N" across all time, not scoped to one day).</summary>
+        Task<IReadOnlyList<ActivityRecord>> GetActivitiesOnDateAsync(Guid childId, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null);
+
+        // ---- Platform-wide (admin) aggregates — same shape as the per-child queries
+        // above, but computed across every child in one query instead of the caller
+        // looping per child. ----
+
+        /// <summary>Total usage seconds per UTC day across all children, over
+        /// [<paramref name="sinceUtc"/>, <paramref name="untilUtc"/>).</summary>
+        Task<IReadOnlyList<DailyUsage>> GetDailyUsageAllSinceAsync(DateTime sinceUtc, DateTime? untilUtc = null);
+
+        /// <summary>Step-completion pairs across every child's activities that reported steps.</summary>
+        Task<IReadOnlyList<StepCompletion>> GetStepCompletionsAllAsync();
+
+        /// <summary>Most recent activities across all children.</summary>
+        Task<IReadOnlyList<ActivityRecord>> GetRecentActivitiesAllAsync(int limit);
+
+        /// <summary>Count of distinct children with any recorded activity since <paramref name="sinceUtc"/>.</summary>
+        Task<int> GetActiveChildrenCountSinceAsync(DateTime sinceUtc);
     }
 }

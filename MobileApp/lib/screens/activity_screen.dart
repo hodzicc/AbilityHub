@@ -76,7 +76,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
             hintsShown: _hintsShown,
             errorsCount: _errorsCount,
           ),
-          detail: 'Korak ${stepsCompleted + 1}/${_steps.length}',
           attributes: {'level': '${widget.activity.level}'},
         )
         .catchError((_) {}); // progress is best-effort, fire-and-forget
@@ -138,7 +137,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
         name: widget.activity.title,
         occurredAt: _endedAt,
         metrics: metrics,
-        detail: 'Završeno ${_steps.length} koraka, $_hintsShown pomoći, $_errorsCount grešaka',
         attributes: {'level': '${widget.activity.level}'},
       );
       if (!mounted) return;
@@ -177,7 +175,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
           hintsShown: _hintsShown,
           errorsCount: _errorsCount,
         ),
-        detail: 'Prekinuto na koraku $_currentStep/${_steps.length}',
         attributes: {'level': '${widget.activity.level}'},
       );
     } catch (_) {

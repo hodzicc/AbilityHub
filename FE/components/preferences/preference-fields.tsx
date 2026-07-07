@@ -63,6 +63,13 @@ export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFields
             </div>
           ))}
         </RadioGroup>
+        <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 p-2.5">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
+            {t(`settings.fontSizeReasons.${value.fontSize === 'extra-large' ? 'extraLarge' : value.fontSize}`)}
+          </p>
+        </div>
       </div>
 
       {/* Font family */}
@@ -86,6 +93,7 @@ export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFields
         <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 p-2.5">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
             {t(`settings.fontFamilyReasons.${value.fontFamily}`)}
           </p>
         </div>
@@ -122,6 +130,7 @@ export function PreferenceFields({ value, onChange, idPrefix }: PreferenceFields
         <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 p-2.5">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{t('settings.whyThisChoice')} </span>
             {t(`settings.colorSchemeReasons.${value.colorScheme === 'high-contrast' ? 'highContrast' : value.colorScheme}`)}
           </p>
         </div>

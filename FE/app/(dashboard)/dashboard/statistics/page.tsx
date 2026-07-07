@@ -16,22 +16,19 @@ import {
 } from '@/components/ui/select'
 import { formatDuration, formatShortDuration } from '@/lib/utils'
 import { Clock, TrendingUp, Calendar, Sparkles, Loader2, Play } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
   apiGetChildren,
   apiGetDashboard,
   apiGetApp,
-  apiGetPreferences,
   type DashboardResponse,
   type UserProfileResponse,
 } from '@/lib/api'
 import type { AppCategory, ActivityMetrics } from '@/lib/types'
 import { APP_CATEGORIES, DEFAULT_APP_COLOR } from '@/lib/constants'
-import { ACTIVITY_ICONS, activityTypeToAction } from '@/lib/activity'
-import { COLOR_SCHEMES, recordToPrefs } from '@/lib/preferences'
+import { ACTIVITY_ICONS, activityTypeToAction, describeActivity } from '@/lib/activity'
 import { WeeklyCheckInCard } from '@/components/statistics/weekly-checkin-card'
-import { ActivityHeatmap } from '@/components/statistics/activity-heatmap'
+import { ActivityCalendar } from '@/components/statistics/activity-calendar'
 import { UsageByAppChart } from '@/components/statistics/usage-by-app-chart'
 import { ActivityMetricsChart } from '@/components/statistics/activity-metrics-chart'
 import { weekRange } from '@/components/statistics/week-nav'
@@ -66,10 +63,6 @@ function emptyDashboard(childId: string): DashboardResponse {
 export default function StatisticsPage() {
   const { t, locale } = useTranslation()
   const { user } = useAuth()
-  const { resolvedTheme } = useTheme()
-  // Only the heatmap's empty-cell color is theme-dependent here now; the navigable
-  // charts are self-contained components that handle their own theming.
-  const isDark = resolvedTheme === 'dark'
   // Unfiltered dashboards — the source of truth, kept fresh by the initial load
   // and realtime updates. Used to discover which apps exist (for the category
   // dropdown's app-id resolution) regardless of which category is selected.
@@ -81,12 +74,11 @@ export default function StatisticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<AppCategory | 'all'>('all')
   const [appNames, setAppNames] = useState<Record<string, { name: string; color: string; category: AppCategory }>>({})
   const [isLoading, setIsLoading] = useState(true)
-  // Accent color for the activity heatmap — the selected child's own colorScheme
-  // preference when one child is picked, otherwise the default scheme's accent.
-  const [heatmapColor, setHeatmapColor] = useState(COLOR_SCHEMES[0].accentText)
 
   useEffect(() => {
-    if (!user) return
+    // Admins aren't anyone's guardian, so this page has nothing to show them — see
+    // the early return below.
+    if (!user || user.role === 'admin') return
     const load = async () => {
       setIsLoading(true)
       try {
@@ -196,31 +188,6 @@ export default function StatisticsPage() {
     return childIds.map(dashboardFor).filter(Boolean) as DashboardResponse[]
   }, [childrenData, categoryDashboards, selectedChild, selectedCategory])
 
-  // Union of active days across the displayed dashboard(s), for the heatmap.
-  const activeDays = useMemo(
-    () => Array.from(new Set(displayDashboards.flatMap(d => d.activeDays))),
-    [displayDashboards]
-  )
-
-  // Use the selected child's own colorScheme for the heatmap accent so it
-  // matches their accessibility preferences; fall back to the default scheme
-  // when viewing all children (no single preference set applies).
-  useEffect(() => {
-    if (selectedChild === 'all') {
-      setHeatmapColor(COLOR_SCHEMES[0].accentText)
-      return
-    }
-    let active = true
-    apiGetPreferences(selectedChild)
-      .then(record => {
-        if (!active) return
-        const prefs = recordToPrefs(record)
-        setHeatmapColor(COLOR_SCHEMES.find(c => c.value === prefs.colorScheme)?.accentText ?? COLOR_SCHEMES[0].accentText)
-      })
-      .catch(() => { if (active) setHeatmapColor(COLOR_SCHEMES[0].accentText) })
-    return () => { active = false }
-  }, [selectedChild])
-
   const stats = useMemo(() => {
     const totalMinutes = displayDashboards.reduce((s, d) => s + d.totalUsageMinutes, 0)
     const totalSessions = displayDashboards.reduce(
@@ -295,7 +262,7 @@ export default function StatisticsPage() {
           childName,
           appId: a.applicationId,
           type: a.activityType,
-          detail: a.detail ?? a.name,
+          detail: describeActivity(a, t),
           occurredAt: new Date(a.occurredAt),
           inProgress: a.inProgress,
           metrics: a.metrics,
@@ -304,6 +271,22 @@ export default function StatisticsPage() {
     })
     return acts.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 15)
   }, [displayDashboards, childrenData, selectedChild, t])
+
+  // Per-child statistics (weekly check-ins, heatmap, category filters) don't apply to
+  // an admin, who isn't anyone's guardian — the dashboard's aggregate figures already
+  // cover what an admin needs. Reachable only via a direct URL (the sidebar hides it).
+  if (user?.role === 'admin') {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t('statistics.title')} description={t('statistics.subtitle')} />
+        <Card className="border-0 shadow-sm">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            {t('statistics.notAvailableForAdmin')}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -515,8 +498,7 @@ export default function StatisticsPage() {
                   <CardTitle className="text-lg">{t('statistics.activityHeatmap')}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-center">
-                  <ActivityHeatmap activeDays={activeDays} color={heatmapColor} emptyColor={isDark ? '#3a4257' : '#dbe1ea'} />
-                  <p className="mt-3 text-xs text-muted-foreground">{t('statistics.activityHeatmapNote')}</p>
+                  <ActivityCalendar childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} />
                 </CardContent>
               </Card>
             </div>

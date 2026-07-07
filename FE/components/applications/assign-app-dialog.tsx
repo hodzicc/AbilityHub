@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,9 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import type { Application, Child } from '@/lib/types'
+
+const MIN_LIMIT = 5
+const MAX_LIMIT = 120
 
 interface AssignAppDialogProps {
   open: boolean
@@ -51,7 +55,8 @@ export function AssignAppDialog({
 
     setIsLoading(true)
     try {
-      await onAssign(selectedChild, hasTimeLimit ? timeLimit : 0)
+      const clampedLimit = Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, timeLimit))
+      await onAssign(selectedChild, hasTimeLimit ? clampedLimit : 0)
       onOpenChange(false)
       setSelectedChild('')
       setHasTimeLimit(false)
@@ -113,21 +118,38 @@ export function AssignAppDialog({
 
             {hasTimeLimit && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <Label>{t('applications.dailyLimit')}</Label>
-                  <span className="text-sm font-medium">{timeLimit} min</span>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={MIN_LIMIT}
+                      max={MAX_LIMIT}
+                      step={5}
+                      value={timeLimit}
+                      onChange={e => {
+                        const raw = Number(e.target.value)
+                        if (!Number.isNaN(raw)) setTimeLimit(raw)
+                      }}
+                      onBlur={() => setTimeLimit(v => Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, v)))}
+                      disabled={isLoading}
+                      className="h-8 w-16 text-right"
+                    />
+                    <span className="text-sm text-muted-foreground">min</span>
+                  </div>
                 </div>
                 <Slider
-                  value={[timeLimit]}
+                  value={[Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, timeLimit))]}
                   onValueChange={([value]) => setTimeLimit(value)}
-                  min={5}
-                  max={120}
+                  min={MIN_LIMIT}
+                  max={MAX_LIMIT}
                   step={5}
                   disabled={isLoading}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>5 min</span>
-                  <span>120 min</span>
+                  <span>{MIN_LIMIT} min</span>
+                  <span>{MAX_LIMIT} min</span>
                 </div>
               </div>
             )}

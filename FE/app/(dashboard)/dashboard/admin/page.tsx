@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { useAuth, useTranslation } from '@/components/providers'
 import { PageHeader } from '@/components/shared'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -34,19 +35,25 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ConfirmationDialog } from '@/components/shared'
-import { Activity, Search, ShieldAlert, ShieldCheck, Users, UserPlus, Loader2, Pencil, Power, PowerOff } from 'lucide-react'
+import {
+  Activity, Search, ShieldAlert, ShieldCheck, Users, UserPlus, Loader2,
+  Pencil, Power, PowerOff, ChevronLeft, ChevronRight, ExternalLink,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   apiGetAllUsers,
+  apiGetUserSummary,
   apiGetApps,
-  apiGetChildren,
   apiCreateUser,
   apiUpdateProfile,
   apiActivateUser,
   apiDeactivateUser,
   type UserProfileResponse,
+  type UserSummaryResponse,
 } from '@/lib/api'
 import { ROLE_ID } from '@/lib/constants'
+
+const PAGE_SIZE = 20
 
 interface NewUserForm {
   firstName: string
@@ -54,77 +61,95 @@ interface NewUserForm {
   email: string
   password: string
   roleId: string
-}
-
-const EMPTY_FORM: NewUserForm = {
-  firstName: '', lastName: '', email: '', password: '', roleId: String(ROLE_ID.PARENT),
-}
-
-interface EditUserForm {
-  firstName: string
-  lastName: string
+  guardianId: string
   dateOfBirth: string
   gender: string
 }
 
-const EMPTY_EDIT_FORM: EditUserForm = {
-  firstName: '', lastName: '', dateOfBirth: '', gender: 'male',
+const EMPTY_FORM: NewUserForm = {
+  firstName: '', lastName: '', email: '', password: '', roleId: String(ROLE_ID.PARENT),
+  guardianId: '', dateOfBirth: '', gender: 'male',
 }
+
+// Only admin/parent rows reach the edit dialog — child rows link to their full
+// profile page instead, so this only ever needs name fields.
+interface EditUserForm {
+  firstName: string
+  lastName: string
+}
+
+const EMPTY_EDIT_FORM: EditUserForm = { firstName: '', lastName: '' }
 
 export default function AdminPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
-  const [query, setQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [users, setUsers] = useState<UserProfileResponse[]>([])
-  const [childrenByParent, setChildrenByParent] = useState<Record<string, UserProfileResponse[]>>({})
+  const [totalCount, setTotalCount] = useState(0)
+  const [summary, setSummary] = useState<UserSummaryResponse | null>(null)
   const [appsCount, setAppsCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [form, setForm] = useState<NewUserForm>(EMPTY_FORM)
+  const [parentOptions, setParentOptions] = useState<UserProfileResponse[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [editUser, setEditUser] = useState<UserProfileResponse | null>(null)
   const [editForm, setEditForm] = useState<EditUserForm>(EMPTY_EDIT_FORM)
   const [isEditSaving, setIsEditSaving] = useState(false)
   const [deactivateUser, setDeactivateUser] = useState<UserProfileResponse | null>(null)
   const [isToggling, setIsToggling] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const loadData = async () => {
-    setIsLoading(true)
-    try {
-      const [usersData, appsData] = await Promise.all([
-        apiGetAllUsers(1, 100),
-        apiGetApps(true),
-      ])
-      setUsers(usersData.items)
-      setAppsCount(appsData.length)
+  // Debounce the search box so every keystroke doesn't fire a request; resets to
+  // page 1 since the previous page number may not exist in the filtered result set.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setPage(1)
+      setSearch(searchInput.trim())
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [searchInput])
 
-      const parents = usersData.items.filter(u => u.roleId === ROLE_ID.PARENT)
-      const childrenMap: Record<string, UserProfileResponse[]> = {}
-      await Promise.all(
-        parents.map(async parent => {
-          childrenMap[parent.id] = await apiGetChildren(parent.id).catch(() => [])
-        })
-      )
-      setChildrenByParent(childrenMap)
-    } catch {
-      toast.error(t('admin.loadError'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
+  // Role counts, per-guardian child counts, and app count are computed across the
+  // WHOLE directory on the backend — not derived from whichever page is loaded —
+  // so they stay correct no matter how many users exist.
   useEffect(() => {
     if (user?.role !== 'admin') return
-    loadData()
-  }, [user?.role])
+    Promise.all([apiGetUserSummary(), apiGetApps(true)])
+      .then(([summaryData, appsData]) => {
+        setSummary(summaryData)
+        setAppsCount(appsData.length)
+      })
+      .catch(() => toast.error(t('admin.loadError')))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, reloadKey])
 
-  const filteredUsers = useMemo(() => {
-    const normalized = query.toLowerCase()
-    return users.filter(item =>
-      `${item.firstName} ${item.lastName}`.toLowerCase().includes(normalized) ||
-      item.email.toLowerCase().includes(normalized)
-    )
-  }, [query, users])
+  // The current page of the (server-side-filtered) user table.
+  useEffect(() => {
+    if (user?.role !== 'admin') return
+    setIsLoading(true)
+    apiGetAllUsers(page, PAGE_SIZE, search || undefined)
+      .then(res => {
+        setUsers(res.items)
+        setTotalCount(res.totalCount)
+      })
+      .catch(() => toast.error(t('admin.loadError')))
+      .finally(() => setIsLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, page, search, reloadKey])
+
+  // Guardian picker for the "add child" form — fetched once the create dialog opens,
+  // since it isn't needed otherwise.
+  useEffect(() => {
+    if (!isCreateOpen) return
+    apiGetAllUsers(1, 100, undefined, ROLE_ID.PARENT)
+      .then(res => setParentOptions(res.items))
+      .catch(() => setParentOptions([]))
+  }, [isCreateOpen])
+
+  const reload = () => setReloadKey(k => k + 1)
 
   const roleLabel = (roleId: number) => {
     if (roleId === ROLE_ID.ADMIN) return t('admin.roleShort.admin')
@@ -132,8 +157,11 @@ export default function AdminPage() {
     return t('admin.roleShort.child')
   }
 
-  const parentCount = users.filter(u => u.roleId === ROLE_ID.PARENT).length
-  const childCount  = users.filter(u => u.roleId === ROLE_ID.CHILD).length
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const rangeFrom = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const rangeTo = Math.min(page * PAGE_SIZE, totalCount)
+
+  const isChildRole = form.roleId === String(ROLE_ID.CHILD)
 
   const handleCreate = async () => {
     if (!form.firstName || !form.lastName || !form.email || !form.password) {
@@ -152,6 +180,11 @@ export default function AdminPage() {
         email:     form.email,
         password:  form.password,
         roleId:    Number(form.roleId),
+        ...(isChildRole ? {
+          guardianId: form.guardianId || undefined,
+          dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : undefined,
+          gender: form.gender,
+        } : {}),
       })
       if (!result.success) {
         toast.error(result.message || t('admin.createError'))
@@ -160,7 +193,7 @@ export default function AdminPage() {
       toast.success(t('admin.createSuccess', { name: `${form.firstName} ${form.lastName}` }))
       setIsCreateOpen(false)
       setForm(EMPTY_FORM)
-      await loadData()
+      reload()
     } catch {
       toast.error(t('admin.createError'))
     } finally {
@@ -170,12 +203,7 @@ export default function AdminPage() {
 
   const openEdit = (item: UserProfileResponse) => {
     setEditUser(item)
-    setEditForm({
-      firstName: item.firstName,
-      lastName: item.lastName,
-      dateOfBirth: item.dateOfBirth ? item.dateOfBirth.slice(0, 10) : '',
-      gender: item.gender || 'male',
-    })
+    setEditForm({ firstName: item.firstName, lastName: item.lastName })
   }
 
   const handleSaveEdit = async () => {
@@ -189,14 +217,10 @@ export default function AdminPage() {
       await apiUpdateProfile(editUser.id, {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
-        ...(editUser.roleId === ROLE_ID.CHILD ? {
-          dateOfBirth: editForm.dateOfBirth ? new Date(editForm.dateOfBirth).toISOString() : undefined,
-          gender: editForm.gender,
-        } : {}),
       })
       toast.success(t('admin.updatedToast'))
       setEditUser(null)
-      await loadData()
+      reload()
     } catch {
       toast.error(t('admin.updateError'))
     } finally {
@@ -209,7 +233,7 @@ export default function AdminPage() {
     try {
       await apiActivateUser(item.id)
       toast.success(t('admin.activatedToast', { name: `${item.firstName} ${item.lastName}` }))
-      await loadData()
+      reload()
     } catch {
       toast.error(t('admin.activateError'))
     } finally {
@@ -224,7 +248,7 @@ export default function AdminPage() {
       await apiDeactivateUser(deactivateUser.id)
       toast.success(t('admin.deactivatedToast', { name: `${deactivateUser.firstName} ${deactivateUser.lastName}` }))
       setDeactivateUser(null)
-      await loadData()
+      reload()
     } catch {
       toast.error(t('admin.deactivateError'))
       setDeactivateUser(null)
@@ -260,7 +284,8 @@ export default function AdminPage() {
         </Button>
       </PageHeader>
 
-      {/* Stats */}
+      {/* Stats — role counts + app count computed across the whole directory,
+          not just whatever page of users happens to be loaded. */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -268,7 +293,7 @@ export default function AdminPage() {
             <Users className="h-4 w-4 text-white/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
+            <div className="text-2xl font-bold">{summary?.totalUsers ?? 0}</div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-400 to-orange-600 text-white">
@@ -277,7 +302,7 @@ export default function AdminPage() {
             <Activity className="h-4 w-4 text-white/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{parentCount}</div>
+            <div className="text-2xl font-bold">{summary?.parentCount ?? 0}</div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
@@ -286,7 +311,7 @@ export default function AdminPage() {
             <Users className="h-4 w-4 text-white/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{childCount}</div>
+            <div className="text-2xl font-bold">{summary?.childCount ?? 0}</div>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-400 to-purple-600 text-white">
@@ -300,46 +325,10 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      {/* Parents & children overview */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle>{t('admin.parentsAndChildren')}</CardTitle>
-          <CardDescription>{t('admin.parentsAndChildrenDesc')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="h-24 bg-muted animate-pulse rounded" />
-          ) : users.filter(u => u.roleId === ROLE_ID.PARENT).length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('admin.noParents')}</p>
-          ) : (
-            <div className="space-y-2">
-              {users.filter(u => u.roleId === ROLE_ID.PARENT).map(parent => {
-                const children = childrenByParent[parent.id] ?? []
-                return (
-                  <div key={parent.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-gradient-to-br from-orange-400 to-orange-500 text-white text-xs font-semibold">
-                          {`${parent.firstName} ${parent.lastName}`.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-sm">{parent.firstName} {parent.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{parent.email}</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {children.length} {children.length === 1 ? t('admin.childCountOne') : t('admin.childCountMany')}
-                    </Badge>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Users table */}
+      {/* Users table — server-side search + pagination, so it stays correct and
+          usable regardless of how many users exist. Parent rows show their linked
+          child count (from the bulk summary, not a per-parent API call); child rows
+          link to their full profile instead of duplicating it in an edit dialog. */}
       <Card className="border-0 shadow-sm">
         <CardHeader>
           <CardTitle>{t('admin.userManagement')}</CardTitle>
@@ -349,8 +338,8 @@ export default function AdminPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               placeholder={t('admin.searchUsersPlaceholder')}
               className="pl-9"
             />
@@ -359,90 +348,143 @@ export default function AdminPage() {
           {isLoading ? (
             <div className="h-32 bg-muted animate-pulse rounded" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('admin.userColumn')}</TableHead>
-                  <TableHead>{t('admin.role')}</TableHead>
-                  <TableHead>{t('admin.status')}</TableHead>
-                  <TableHead className="text-right">{t('admin.actionsColumn')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map(item => {
-                  const isSelf = item.id === user?.id
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-xs font-semibold">
-                              {`${item.firstName} ${item.lastName}`.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{item.firstName} {item.lastName}</div>
-                            <div className="text-sm text-muted-foreground">{item.email}</div>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('admin.userColumn')}</TableHead>
+                    <TableHead>{t('admin.role')}</TableHead>
+                    <TableHead>{t('admin.status')}</TableHead>
+                    <TableHead>{t('admin.childrenColumn')}</TableHead>
+                    <TableHead className="text-right">{t('admin.actionsColumn')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map(item => {
+                    const isSelf = item.id === user?.id
+                    const childCount = summary?.childCountsByGuardian[item.id] ?? 0
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-400 to-purple-500 text-white text-xs font-semibold">
+                                {`${item.firstName} ${item.lastName}`.slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{item.firstName} {item.lastName}</div>
+                              <div className="text-sm text-muted-foreground">{item.email}</div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={item.roleId === ROLE_ID.ADMIN ? 'default' : 'secondary'}>
-                          {roleLabel(item.roleId)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={item.isActive
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-0'}
-                        >
-                          {item.isActive ? t('common.active') : t('common.inactive')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            title={t('admin.editUserAction')}
-                            onClick={() => openEdit(item)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={item.roleId === ROLE_ID.ADMIN ? 'default' : 'secondary'}>
+                            {roleLabel(item.roleId)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={item.isActive
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-0'
+                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-0'}
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          {!isSelf && (
-                            item.isActive ? (
+                            {item.isActive ? t('common.active') : t('common.inactive')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {item.roleId === ROLE_ID.PARENT ? (
+                            <Badge variant="secondary" className="text-xs">
+                              {childCount} {childCount === 1 ? t('admin.childCountOne') : t('admin.childCountMany')}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {item.roleId === ROLE_ID.CHILD ? (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                title={t('admin.deactivateUser')}
-                                disabled={isToggling === item.id}
-                                onClick={() => setDeactivateUser(item)}
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                title={t('admin.viewProfile')}
+                                asChild
                               >
-                                <PowerOff className="h-4 w-4" />
+                                <Link href={`/dashboard/children/${item.id}`}>
+                                  <ExternalLink className="h-4 w-4" />
+                                </Link>
                               </Button>
                             ) : (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
-                                title={t('admin.activateUser')}
-                                disabled={isToggling === item.id}
-                                onClick={() => handleActivate(item)}
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                title={t('admin.editUserAction')}
+                                onClick={() => openEdit(item)}
                               >
-                                <Power className="h-4 w-4" />
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                            )
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                            )}
+                            {!isSelf && (
+                              item.isActive ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  title={t('admin.deactivateUser')}
+                                  disabled={isToggling === item.id}
+                                  onClick={() => setDeactivateUser(item)}
+                                >
+                                  <PowerOff className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
+                                  title={t('admin.activateUser')}
+                                  disabled={isToggling === item.id}
+                                  onClick={() => handleActivate(item)}
+                                >
+                                  <Power className="h-4 w-4" />
+                                </Button>
+                              )
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-sm text-muted-foreground">
+                  {t('admin.paginationInfo', { from: String(rangeFrom), to: String(rangeTo), total: String(totalCount) })}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    {t('common.previous')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    {t('common.next')}
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -515,10 +557,65 @@ export default function AdminPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={String(ROLE_ID.PARENT)}>{t('admin.roleParentOption')}</SelectItem>
+                  <SelectItem value={String(ROLE_ID.CHILD)}>{t('admin.roleChildOption')}</SelectItem>
                   <SelectItem value={String(ROLE_ID.ADMIN)}>{t('admin.roleAdminOption')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {isChildRole && (
+              <>
+                <div className="space-y-2">
+                  <Label>{t('admin.guardianLabel')}</Label>
+                  <Select
+                    value={form.guardianId}
+                    onValueChange={v => setForm(f => ({ ...f, guardianId: v }))}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('admin.guardianPlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parentOptions.map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.firstName} {p.lastName} ({p.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="newDob">{t('children.dateOfBirth')}</Label>
+                    <Input
+                      id="newDob"
+                      type="date"
+                      value={form.dateOfBirth}
+                      onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))}
+                      disabled={isCreating}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('children.gender')}</Label>
+                    <Select
+                      value={form.gender}
+                      onValueChange={v => setForm(f => ({ ...f, gender: v }))}
+                      disabled={isCreating}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">{t('children.male')}</SelectItem>
+                        <SelectItem value="female">{t('children.female')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('admin.childFieldsHint')}</p>
+              </>
+            )}
           </div>
 
           <DialogFooter>
@@ -533,7 +630,7 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit user dialog */}
+      {/* Edit user dialog — admin/parent rows only; child rows link to their full profile instead. */}
       <Dialog open={!!editUser} onOpenChange={open => { if (!open) { setEditUser(null); setEditForm(EMPTY_EDIT_FORM) } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -564,37 +661,6 @@ export default function AdminPage() {
                 />
               </div>
             </div>
-
-            {editUser?.roleId === ROLE_ID.CHILD && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="editDob">{t('children.dateOfBirth')}</Label>
-                  <Input
-                    id="editDob"
-                    type="date"
-                    value={editForm.dateOfBirth}
-                    onChange={e => setEditForm(f => ({ ...f, dateOfBirth: e.target.value }))}
-                    disabled={isEditSaving}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('children.gender')}</Label>
-                  <Select
-                    value={editForm.gender}
-                    onValueChange={v => setEditForm(f => ({ ...f, gender: v }))}
-                    disabled={isEditSaving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">{t('children.male')}</SelectItem>
-                      <SelectItem value="female">{t('children.female')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
           </div>
 
           <DialogFooter>

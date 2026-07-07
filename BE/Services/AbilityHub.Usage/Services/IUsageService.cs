@@ -23,4 +23,18 @@ public interface IUsageService
     Task<DailyMetricsResponse> GetDailyMetricsAsync(Guid childId, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null);
 
     Task<LimitStatusResponse> GetLimitStatusAsync(Guid childId, Guid applicationId);
+
+    /// <summary>
+    /// Platform-wide usage snapshot for admins, computed across all children in one
+    /// backend pass (as opposed to the caller fetching every child's own dashboard).
+    /// </summary>
+    Task<AdminDashboardResponse> GetAdminDashboardAsync();
+
+    /// <summary>Dates within the given calendar month (1-12) that have any recorded
+    /// activity — backs the statistics calendar view's month grid.</summary>
+    Task<CalendarMonthResponse> GetCalendarMonthAsync(Guid childId, int year, int month, IReadOnlyCollection<Guid>? applicationIds = null);
+
+    /// <summary>Every activity a child had on one specific day — backs the calendar's
+    /// day drill-down (clicking e.g. 2026-07-03 lists everything assigned that day).</summary>
+    Task<List<RecentActivityDto>> GetActivitiesOnDateAsync(Guid childId, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null);
 }

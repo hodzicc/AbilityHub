@@ -62,3 +62,12 @@ public class ChildApplicationResponse
     public string Name { get; set; } = string.Empty;
     public DateTime AssignedAt { get; set; }
 }
+
+/// <summary>One child's assignment of a given app — the reverse of
+/// <see cref="ChildApplicationResponse"/> (which apps a child has); this is which
+/// children have a given app, for the app-centric admin view.</summary>
+public class AppAssignmentResponse
+{
+    public Guid ChildId { get; set; }
+    public DateTime AssignedAt { get; set; }
+}
