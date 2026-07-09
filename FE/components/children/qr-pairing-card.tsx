@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from '@/components/providers'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Loader2, QrCode, RefreshCw } from 'lucide-react'
+import { Loader2, QrCode, RefreshCw, Copy } from 'lucide-react'
 import { apiGetChildPairingToken } from '@/lib/api'
 import { toast } from 'sonner'
 
@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 export function QrPairingCard({ childId, childName }: { childId: string; childName: string }) {
   const { t, locale } = useTranslation()
   const [payload, setPayload] = useState<string | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -26,11 +27,22 @@ export function QrPairingCard({ childId, childName }: { childId: string; childNa
     try {
       const { token, expiresAt } = await apiGetChildPairingToken(childId)
       setPayload(JSON.stringify({ type: 'abilityhub-pairing', childId, token }))
+      setToken(token)
       setExpiresAt(expiresAt)
     } catch {
       toast.error(t('qrPairing.loadError'))
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const copyToken = async () => {
+    if (!token) return
+    try {
+      await navigator.clipboard.writeText(token)
+      toast.success(t('qrPairing.copied'))
+    } catch {
+      toast.error(t('qrPairing.loadError'))
     }
   }
 
@@ -65,10 +77,19 @@ export function QrPairingCard({ childId, childName }: { childId: string; childNa
             {t('qrPairing.expiresAt', { time: new Date(expiresAt).toLocaleTimeString(locale === 'bs' ? 'bs-BA' : 'en-US') })}
           </p>
         )}
-        <Button variant="outline" size="sm" onClick={refresh} disabled={isLoading}>
-          <RefreshCw className="mr-2 h-3.5 w-3.5" />
-          {t('qrPairing.regenerate')}
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={copyToken} disabled={isLoading || !token}>
+            <Copy className="mr-2 h-3.5 w-3.5" />
+            {t('qrPairing.copyToken')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={isLoading}>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+            {t('qrPairing.regenerate')}
+          </Button>
+        </div>
+        <p className="text-center text-xs text-muted-foreground">
+          {t('qrPairing.webHint')}
+        </p>
       </CardContent>
     </Card>
   )

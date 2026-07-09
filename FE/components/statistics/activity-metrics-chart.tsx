@@ -17,6 +17,8 @@ interface Props {
   childIds: string[]
   /** App-id filter: null = all apps; [] = a category with no apps (renders empty). */
   applicationIds: string[] | null
+  /** Bumped by the parent on each realtime usage change to force a re-fetch. */
+  reloadKey?: number
 }
 
 interface DayPoint {
@@ -43,7 +45,7 @@ const SERIES = [
  * wrong selections / skipped steps / returning to a previous step). Replaces the
  * old usage pie chart.
  */
-export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
+export function ActivityMetricsChart({ childIds, applicationIds, reloadKey }: Props) {
   const { t } = useTranslation()
   const { locale } = useLanguage()
   const { resolvedTheme } = useTheme()
@@ -102,7 +104,7 @@ export function ActivityMetricsChart({ childIds, applicationIds }: Props) {
         setRangeLabel(`${fmt(valid[0].rangeStart)} – ${fmt(valid[0].rangeEnd)}`)
       })
     return () => { active = false }
-  }, [childIds, applicationIds, range, locale])
+  }, [childIds, applicationIds, range, locale, reloadKey])
 
   const hasData = data.some(d => d.hints || d.completed || d.notCompleted || d.stepBacks)
 

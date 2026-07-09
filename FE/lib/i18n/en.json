@@ -633,9 +633,12 @@
   },
   "qrPairing": {
     "title": "QR code login",
-    "description": "{name} can log in to the mobile app by scanning this code instead of typing a password.",
+    "description": "{name} can log in by scanning this code in the mobile app, or by pasting the token below into a web app that can't scan.",
     "expiresAt": "Code expires at {time} — generate a new one if needed.",
     "regenerate": "Generate new code",
+    "copyToken": "Copy token",
+    "copied": "Token copied",
+    "webHint": "For web apps, copy the token and paste it into the app's login field.",
     "tabLabel": "Login",
     "loadError": "Error generating the QR code"
   },

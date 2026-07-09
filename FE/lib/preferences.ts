@@ -4,11 +4,13 @@
 
 import type { ColorScheme, FontFamily, FontSize, UIPreferences } from '@/lib/types'
 
-export const FONT_SIZES: { value: FontSize; label: string; size: string }[] = [
-  { value: 'small',       label: 'Mala',        size: '14px' },
-  { value: 'medium',      label: 'Srednja',     size: '16px' },
-  { value: 'large',       label: 'Velika',      size: '18px' },
-  { value: 'extra-large', label: 'Vrlo velika', size: '20px' },
+// Labels are rendered via i18n (settings.fontSizes.*), so only the machine-facing
+// value + the CSS size live here.
+export const FONT_SIZES: { value: FontSize; size: string }[] = [
+  { value: 'small',       size: '14px' },
+  { value: 'medium',      size: '16px' },
+  { value: 'large',       size: '18px' },
+  { value: 'extra-large', size: '20px' },
 ]
 
 // Font choices: a default rounded sans for friendliness, and a high-legibility
@@ -17,10 +19,10 @@ export const FONT_SIZES: { value: FontSize; label: string; size: string }[] = [
 // The 'rounded' and 'legible' stacks reference CSS variables set by next/font
 // in app/layout.tsx (--font-nunito, --font-atkinson) — without that, the named
 // fonts aren't actually loaded in the browser and selection has no visible effect.
-export const FONT_FAMILIES: { value: FontFamily; label: string; stack: string }[] = [
-  { value: 'default', label: 'Standardni (Inter)',        stack: 'var(--font-sans, ui-sans-serif), system-ui, sans-serif' },
-  { value: 'rounded',  label: 'Zaokruženi (Nunito)',       stack: 'var(--font-nunito), var(--font-sans, ui-sans-serif), sans-serif' },
-  { value: 'legible',  label: 'Visoka čitljivost (Atkinson)', stack: 'var(--font-atkinson), var(--font-sans, ui-sans-serif), sans-serif' },
+export const FONT_FAMILIES: { value: FontFamily; stack: string }[] = [
+  { value: 'default', stack: 'var(--font-sans, ui-sans-serif), system-ui, sans-serif' },
+  { value: 'rounded', stack: 'var(--font-nunito), var(--font-sans, ui-sans-serif), sans-serif' },
+  { value: 'legible', stack: 'var(--font-atkinson), var(--font-sans, ui-sans-serif), sans-serif' },
 ]
 
 // Color scheme palette (rationale shown to users via i18n's colorSchemeReasons).
@@ -32,11 +34,11 @@ export const FONT_FAMILIES: { value: FontFamily; label: string; stack: string }[
 // scheme's accent color is rendered as large/standalone text (e.g. the
 // mock-preview's big letter) — `colors[0]` alone is too light to read
 // against a light background for the 'pastel' scheme.
-export const COLOR_SCHEMES: { value: ColorScheme; label: string; colors: string[]; accentText: string }[] = [
-  { value: 'default',       label: 'Zadana',         colors: ['#4F46E5', '#10B981', '#F59E0B'], accentText: '#4F46E5' },
-  { value: 'high-contrast', label: 'Visoki kontrast (žuto-crna)', colors: ['#000000', '#FFFF00', '#1D4ED8'], accentText: '#000000' },
-  { value: 'pastel',        label: 'Pastelne',        colors: ['#A5B4FC', '#86EFAC', '#FDE68A'], accentText: '#4338CA' },
-  { value: 'warm',          label: 'Tople',           colors: ['#F97316', '#FBBF24', '#EF4444'], accentText: '#C2410C' },
+export const COLOR_SCHEMES: { value: ColorScheme; colors: string[]; accentText: string }[] = [
+  { value: 'default',       colors: ['#4F46E5', '#10B981', '#F59E0B'], accentText: '#4F46E5' },
+  { value: 'high-contrast', colors: ['#000000', '#FFFF00', '#1D4ED8'], accentText: '#000000' },
+  { value: 'pastel',        colors: ['#A5B4FC', '#86EFAC', '#FDE68A'], accentText: '#4338CA' },
+  { value: 'warm',          colors: ['#F97316', '#FBBF24', '#EF4444'], accentText: '#C2410C' },
 ]
 
 export const DEFAULT_PREFERENCES: UIPreferences = {

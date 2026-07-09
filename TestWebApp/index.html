@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AbilityHub — Reference Web App</title>
+
+<!-- Fonts used by the preference "fontFamily" values, mirroring the mobile app:
+     default = Inter, rounded = Nunito, legible = Atkinson Hyperlegible. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Nunito:wght@400;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet" />
+
+<!-- SignalR client for the realtime settings hub (/hubs/settings). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+<style>
+  /* Preference-driven design tokens. JS overwrites these on :root when the
+     child's resolved preferences arrive, so the whole UI re-themes live. */
+  :root {
+    --accent: #4F46E5;
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --ink: #1f2430;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --font: 'Inter', system-ui, sans-serif;
+    --scale: 1.1;
+    --radius: 14px;
+    --motion: 200ms;
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: calc(16px * var(--scale)); }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { margin: 0 0 .4em; line-height: 1.2; }
+  h1 { font-size: 1.6rem; font-weight: 800; }
+  h2 { font-size: 1.15rem; font-weight: 800; }
+  small, .muted { color: var(--muted); }
+
+  .app { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; background: var(--accent); color: #fff;
+    border-radius: var(--radius); margin-bottom: 18px;
+  }
+  .topbar .logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: rgba(255,255,255,.22); display: grid; place-items: center;
+    font-weight: 800;
+  }
+  .topbar .who { margin-left: auto; text-align: right; font-size: .85rem; opacity: .95; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; }
+
+  label { display: block; font-size: .82rem; font-weight: 600; margin: 10px 0 4px; }
+  input, select {
+    width: 100%; padding: 10px 12px; font: inherit;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink);
+  }
+  button {
+    font: inherit; font-weight: 700; cursor: pointer;
+    padding: 10px 16px; border-radius: 10px; border: 1px solid transparent;
+    background: var(--accent); color: #fff;
+    transition: transform var(--motion), filter var(--motion);
+  }
+  button:hover { filter: brightness(1.05); }
+  button:active { transform: translateY(1px); }
+  button.ghost { background: transparent; color: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tabs button { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .74rem; font-weight: 700; }
+  .pill.ok { background: #dcfce7; color: #166534; }
+  .pill.warn { background: #fef9c3; color: #854d0e; }
+  .pill.bad { background: #fee2e2; color: #991b1b; }
+
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: .9rem; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-weight: 700; text-align: right; }
+
+  .steps { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .step {
+    flex: 1 1 60px; min-width: 60px; text-align: center; padding: 14px 6px;
+    border: 2px solid var(--border); border-radius: 12px; font-weight: 800; color: var(--muted);
+    transition: all var(--motion);
+  }
+  .step.done { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+  .step.current { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); color: var(--ink); }
+
+  .log {
+    background: #0b1020; color: #cbd5e1; border-radius: 12px; padding: 12px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .78rem;
+    height: 190px; overflow: auto; white-space: pre-wrap; line-height: 1.45;
+  }
+  .log .t { color: #64748b; }
+  .log .ok { color: #4ade80; }
+  .log .err { color: #f87171; }
+  .log .in { color: #38bdf8; }
+  .log .out { color: #fbbf24; }
+
+  .hidden { display: none !important; }
+  .error-banner { background: #fee2e2; color: #991b1b; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-weight: 600; }
+
+  /* Full-screen lockout overlay — mirrors the mobile app's instant lock. */
+  .lockout {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+    background: rgba(15, 23, 42, .92); color: #fff; text-align: center; padding: 24px;
+  }
+  .lockout .box { max-width: 420px; }
+  .lockout .icon { font-size: 3rem; }
+
+  /* High-contrast scheme = black on yellow, per the mobile app. */
+  body.scheme-hc { --bg: #ffff00; --surface: #ffff00; --ink: #000; --muted: #333; --border: #000; --accent: #000; }
+  body.scheme-hc .topbar { background: #000; color: #ff0; }
+  body.scheme-hc button { background: #000; color: #ff0; border: 2px solid #000; }
+  body.scheme-hc .card { border: 2px solid #000; }
+
+  /* highContrast boolean (within any scheme): crisper borders + bolder text. */
+  body.contrast-boost { --border: #000; --ink: #000; }
+  body.contrast-boost .card, body.contrast-boost input, body.contrast-boost select { border-width: 2px; }
+  body.contrast-boost h1, body.contrast-boost h2, body.contrast-boost h3 { font-weight: 800; }
+
+  /* reducedMotion: neutralize transitions. */
+  body.reduced-motion * { transition: none !important; animation: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">◆</div>
+    <div>
+      <div style="font-weight:800">AbilityHub — Reference Web App</div>
+      <small id="topSub" style="opacity:.9">Integration test harness for web apps</small>
+    </div>
+    <div class="who" id="whoBox"></div>
+  </div>
+
+  <div id="errorBanner" class="error-banner hidden"></div>
+
+  <!-- ============ CONFIG ============ -->
+  <div class="card" id="configCard">
+    <h2>1 · Connection</h2>
+    <div class="grid">
+      <div>
+        <label>Gateway URL</label>
+        <input id="gatewayUrl" value="http://localhost:5046" />
+        <small>Local dev = <code>:5046</code>, Docker = <code>:8080</code></small>
+      </div>
+      <div>
+        <label>App key (catalog key)</label>
+        <input id="appKey" value="reference-web" />
+        <small>Must exist in AppRegistry &amp; be assigned to the child</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOGIN ============ -->
+  <div class="card" id="loginCard">
+    <h2>2 · Sign in (centralized SSO)</h2>
+    <div class="tabs">
+      <button id="tabCreds" class="active" onclick="setLoginTab('creds')">Email + password</button>
+      <button id="tabQr" onclick="setLoginTab('qr')">QR pairing token</button>
+    </div>
+
+    <div id="credsPane">
+      <label>Child email</label>
+      <input id="email" placeholder="child@example.com" autocomplete="username" />
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <div id="qrPane" class="hidden">
+      <label>Pairing token</label>
+      <input id="pairingToken" placeholder="Paste the token from the child's QR (Prijava tab)" />
+      <small>The parent generates it on the child profile → Prijava. The QR encodes <code>{ childId, token }</code>; paste the <code>token</code> here.</small>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button id="loginBtn" onclick="doLogin()">Sign in</button>
+    </div>
+  </div>
+
+  <!-- ============ SESSION ============ -->
+  <div class="card hidden" id="sessionCard">
+    <div class="row">
+      <h2 style="margin:0">3 · Session</h2>
+      <span id="appPill" class="pill warn" style="margin-left:auto">app not resolved</span>
+    </div>
+    <div class="kv" style="margin-top:12px">
+      <div class="k">Signed-in child</div><div class="v" id="kChild">—</div>
+      <div class="k">Child id</div><div class="v" id="kChildId">—</div>
+      <div class="k">Resolved app id</div><div class="v" id="kAppId">—</div>
+      <div class="k">Time in app (this session)</div><div class="v" id="kTime">0s</div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="ghost" onclick="refreshAll()">Re-sync now</button>
+      <button class="ghost" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ============ PREFERENCES ============ -->
+  <div class="card hidden" id="prefsCard">
+    <h2>4 · Preference sync</h2>
+    <small>Resolved from Settings and applied to this app's UI. Change them in the web dashboard → this re-themes live over SignalR (or on the next re-sync).</small>
+    <div class="kv" id="prefsKv" style="margin-top:12px"></div>
+  </div>
+
+  <!-- ============ ACTIVITY ============ -->
+  <div class="card hidden" id="activityCard">
+    <h2>5 · Activity + accessibility metrics</h2>
+    <small>A 5-step task. Each step reports live progress; finishing reports the final activity with metrics + the foreground session — visible on the web app's Statistika page.</small>
+    <div class="steps" id="stepsRow"></div>
+    <div class="row">
+      <button id="startTaskBtn" onclick="startTask()">Start task</button>
+      <button id="nextStepBtn" onclick="nextStep()" disabled>Complete next step ▸</button>
+      <button id="hintBtn" class="ghost" onclick="useHint()" disabled>Use hint</button>
+      <button id="mistakeBtn" class="ghost" onclick="makeMistake()" disabled>Log mistake</button>
+    </div>
+    <div class="kv" style="margin-top:12px">
+      <div class="k">Steps completed</div><div class="v" id="mSteps">0 / 5</div>
+      <div class="k">Hints shown</div><div class="v" id="mHints">0</div>
+      <div class="k">Errors</div><div class="v" id="mErrors">0</div>
+      <div class="k">Elapsed</div><div class="v" id="mDur">0s</div>
+    </div>
+  </div>
+
+  <!-- ============ LIMIT ============ -->
+  <div class="card hidden" id="limitCard">
+    <h2>6 · Usage limit &amp; realtime lockout</h2>
+    <small>Read from Usage; a parent's block/limit change over SignalR (<code>/hubs/settings</code>) locks this app instantly.</small>
+    <div class="kv" style="margin-top:12px">
+      <div class="k">Realtime hub</div><div class="v" id="kHub">disconnected</div>
+      <div class="k">Daily limit</div><div class="v" id="kLimit">—</div>
+      <div class="k">Used today</div><div class="v" id="kUsed">—</div>
+      <div class="k">Remaining</div><div class="v" id="kRemaining">—</div>
+      <div class="k">Blocked</div><div class="v" id="kBlocked">—</div>
+    </div>
+  </div>
+
+  <!-- ============ LOG ============ -->
+  <div class="card">
+    <div class="row"><h2 style="margin:0">Integration log</h2>
+      <button class="ghost" style="margin-left:auto" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="log" id="log" style="margin-top:10px"></div>
+  </div>
+
+</div>
+
+<!-- Lockout overlay -->
+<div id="lockout" class="lockout hidden">
+  <div class="box">
+    <div class="icon">🔒</div>
+    <h1 id="lockTitle">Time's up!</h1>
+    <p id="lockMsg">Your app time for today is used up. Come back tomorrow.</p>
+    <button class="ghost" style="color:#fff;border-color:#fff" onclick="doLogout()">Sign out</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   AbilityHub reference WEB app — single-file integration test harness.
+
+   Exercises the same four integration points as the reference mobile app,
+   against the same gateway API:
+     1. SSO login        POST /api/auth/login   or   /api/auth/pairing/exchange
+     2. Preference sync   GET /api/settings/children/{c}/apps/{a}/resolved
+     3. Usage + metrics  POST /api/usage/report            (abilityhub.usage.v1)
+     4. Realtime lockout  SignalR /hubs/settings  +  GET .../limit-status
+   Tokens auto-refresh once on a 401, mirroring the web app's apiFetch.
+   ==========================================================================*/
+
+const state = {
+  access: null, refresh: null,
+  child: null, appId: null,
+  prefs: {}, limit: null,
+  sessionId: null, sessionStart: null,
+  hub: null, pollTimer: null, tickTimer: null,
+  task: null,
+};
+
+const $ = (id) => document.getElementById(id);
+const cfg = () => ({
+  gateway: $('gatewayUrl').value.replace(/\/+$/, ''),
+  appKey: $('appKey').value.trim(),
+});
+
+/* ---------------- logging ---------------- */
+function log(msg, cls = '') {
+  const el = $('log');
+  const t = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="t">${t}</span> <span class="${cls}">${msg}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog() { $('log').innerHTML = ''; }
+function showError(msg) { const b = $('errorBanner'); b.textContent = msg; b.classList.remove('hidden'); }
+function clearError() { $('errorBanner').classList.add('hidden'); }
+
+/* ---------------- HTTP with 1x token refresh on 401 ---------------- */
+async function api(method, path, body, { anon = false } = {}) {
+  const url = cfg().gateway + path;
+  const headers = { 'Content-Type': 'application/json' };
+  if (!anon && state.access) headers['Authorization'] = 'Bearer ' + state.access;
+  log(`<span class="in">→ ${method} ${path}</span>`);
+  let res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+
+  if (res.status === 401 && !anon && await tryRefresh()) {
+    headers['Authorization'] = 'Bearer ' + state.access;
+    res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  }
+  const text = await res.text();
+  const data = text ? safeJson(text) : null;
+  if (!res.ok) {
+    log(`<span class="err">← ${res.status} ${path}</span>`, 'err');
+    const err = new Error((data && (data.message || data.error)) || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  log(`<span class="out">← ${res.status} ${path}</span>`);
+  return data;
+}
+function safeJson(t) { try { return JSON.parse(t); } catch { return null; } }
+
+async function tryRefresh() {
+  if (!state.refresh) return false;
+  try {
+    const res = await fetch(cfg().gateway + '/api/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: state.refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data && data.success) {
+      state.access = data.accessToken; state.refresh = data.refreshToken;
+      log('token refreshed', 'ok');
+      return true;
+    }
+  } catch { /* fall through */ }
+  return false;
+}
+
+/* ---------------- login tab switching ---------------- */
+function setLoginTab(which) {
+  const creds = which === 'creds';
+  $('tabCreds').classList.toggle('active', creds);
+  $('tabQr').classList.toggle('active', !creds);
+  $('credsPane').classList.toggle('hidden', !creds);
+  $('qrPane').classList.toggle('hidden', creds);
+}
+
+/* ---------------- auth ---------------- */
+async function doLogin() {
+  clearError();
+  const qrMode = !$('qrPane').classList.contains('hidden');
+  $('loginBtn').disabled = true;
+  try {
+    let auth;
+    if (qrMode) {
+      const token = $('pairingToken').value.trim();
+      if (!token) throw new Error('Paste a pairing token first.');
+      auth = await api('POST', '/api/auth/pairing/exchange',
+        { token, appKey: cfg().appKey }, { anon: true });
+    } else {
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      if (!email || !password) throw new Error('Enter email and password.');
+      auth = await api('POST', '/api/auth/login',
+        { email, password, appKey: cfg().appKey }, { anon: true });
+    }
+    if (!auth || !auth.success) {
+      throw new Error((auth && auth.message) || 'Login rejected (wrong credentials, or app not assigned to this child).');
+    }
+    state.access = auth.accessToken;
+    state.refresh = auth.refreshToken;
+    log('signed in', 'ok');
+    await loadSession();
+  } catch (e) {
+    showError(e.message);
+    log(e.message, 'err');
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+async function doLogout() {
+  stopSession();
+  try { if (state.refresh) await api('POST', '/api/auth/logout', { refreshToken: state.refresh }); } catch {}
+  Object.assign(state, { access: null, refresh: null, child: null, appId: null, prefs: {}, limit: null });
+  applyPreferences({});
+  ['sessionCard','prefsCard','activityCard','limitCard'].forEach(id => $(id).classList.add('hidden'));
+  $('loginCard').classList.remove('hidden');
+  $('configCard').classList.remove('hidden');
+  $('whoBox').textContent = '';
+  $('lockout').classList.add('hidden');
+  log('signed out', 'ok');
+}
+
+/* ---------------- session bootstrap ---------------- */
+async function loadSession() {
+  // Who am I?
+  state.child = await api('GET', '/api/users/me');
+  // Resolve this app's catalog id by its key.
+  const catalog = await api('GET', '/api/apps');
+  const mine = (catalog || []).find(a => a.key === cfg().appKey);
+  state.appId = mine ? mine.id : null;
+
+  $('loginCard').classList.add('hidden');
+  $('configCard').classList.add('hidden');
+  ['sessionCard','prefsCard','activityCard','limitCard'].forEach(id => $(id).classList.remove('hidden'));
+
+  const name = `${state.child.firstName || ''} ${state.child.lastName || ''}`.trim() || state.child.email;
+  $('whoBox').innerHTML = `${name}<br><small>${state.child.email}</small>`;
+  $('kChild').textContent = name;
+  $('kChildId').textContent = state.child.id;
+  $('kAppId').textContent = state.appId || '(not in catalog)';
+
+  const pill = $('appPill');
+  if (state.appId) { pill.className = 'pill ok'; pill.textContent = 'app resolved'; }
+  else {
+    pill.className = 'pill bad'; pill.textContent = 'app not in catalog';
+    log('App key not found in /api/apps — register it and assign it to this child.', 'err');
+  }
+
+  if (state.appId) {
+    await refreshPreferences();
+    await refreshLimit();
+    startSession();
+    await connectHub();
+  }
+}
+
+/* ---------------- preferences ---------------- */
+async function refreshPreferences() {
+  if (!state.appId) return;
+  try {
+    const r = await api('GET', `/api/settings/children/${state.child.id}/apps/${state.appId}/resolved`);
+    state.prefs = (r && r.preferences) || {};
+    // The /resolved response also carries the restriction — feed it to the limit view.
+    if (r && r.restriction) applyRestriction(r.restriction);
+    applyPreferences(state.prefs);
+    renderPrefs();
+    log('preferences synced', 'ok');
+  } catch (e) { log('preferences: ' + e.message, 'err'); }
+}
+
+function renderPrefs() {
+  const p = state.prefs;
+  const known = ['colorScheme','fontFamily','fontSize','highContrast','reducedMotion','soundEnabled'];
+  const rows = known.map(k => `<div class="k">${k}</div><div class="v">${p[k] ?? '—'}</div>`);
+  // include any extra keys the platform returns
+  Object.keys(p).filter(k => !known.includes(k)).forEach(k => rows.push(`<div class="k">${k}</div><div class="v">${p[k]}</div>`));
+  $('prefsKv').innerHTML = rows.join('');
+}
+
+// Map the resolved preference map to CSS design tokens (mirrors the mobile theme).
+function applyPreferences(p) {
+  const root = document.documentElement.style;
+  const body = document.body;
+  const scheme = p.colorScheme || 'default';
+  const seed = { 'default': '#4F46E5', 'pastel': '#818CF8', 'warm': '#F97316' }[scheme] || '#4F46E5';
+  root.setProperty('--accent', seed);
+
+  const font = { 'default': "'Inter', system-ui, sans-serif",
+                 'rounded': "'Nunito', system-ui, sans-serif",
+                 'legible': "'Atkinson Hyperlegible', system-ui, sans-serif" }[p.fontFamily] || "'Inter', system-ui, sans-serif";
+  root.setProperty('--font', font);
+
+  const scale = { 'small': 0.95, 'medium': 1.1, 'large': 1.2, 'extra-large': 1.4 }[p.fontSize] || 1.1;
+  root.setProperty('--scale', scale);
+
+  const flag = (k) => String(p[k]).toLowerCase() === 'true';
+  body.classList.toggle('scheme-hc', scheme === 'high-contrast');
+  body.classList.toggle('contrast-boost', flag('highContrast'));
+  body.classList.toggle('reduced-motion', flag('reducedMotion'));
+  root.setProperty('--motion', flag('reducedMotion') ? '0ms' : '200ms');
+}
+
+/* ---------------- limit / lockout ---------------- */
+function applyRestriction(r) {
+  // Shape used by /resolved: { dailyTimeLimitMinutes, isBlocked }
+  $('kLimit').textContent = r.dailyTimeLimitMinutes != null ? r.dailyTimeLimitMinutes + ' min' : 'none';
+  if (r.isBlocked) { $('kBlocked').textContent = 'yes'; }
+}
+
+async function refreshLimit() {
+  if (!state.appId) return;
+  try {
+    const l = await api('GET', `/api/usage/children/${state.child.id}/apps/${state.appId}/limit-status`);
+    state.limit = l;
+    $('kLimit').textContent = l.dailyLimitMinutes != null ? l.dailyLimitMinutes + ' min' : 'none';
+    $('kUsed').textContent = (l.usedTodayMinutes ?? 0) + ' min';
+    $('kRemaining').textContent = l.remainingMinutes != null ? l.remainingMinutes + ' min' : '∞';
+    $('kBlocked').textContent = l.isBlocked ? 'yes' : 'no';
+    enforceLockout();
+  } catch (e) { log('limit: ' + e.message, 'err'); }
+}
+
+function enforceLockout() {
+  const l = state.limit;
+  const locked = l && (l.isBlocked || l.limitReached);
+  const overlay = $('lockout');
+  if (locked) {
+    stopTimeTracking(true); // flush remaining time
+    $('lockTitle').textContent = l.isBlocked ? 'App blocked' : "Time's up!";
+    $('lockMsg').textContent = l.isBlocked
+      ? 'A parent has blocked this app for now.'
+      : "Your app time for today is used up. Come back tomorrow.";
+    overlay.classList.remove('hidden');
+    log('LOCKED OUT (' + (l.isBlocked ? 'blocked' : 'limit reached') + ')', 'err');
+  } else {
+    overlay.classList.add('hidden');
+  }
+}
+
+/* ---------------- realtime hub ---------------- */
+async function connectHub() {
+  if (!window.signalR) { log('SignalR client not loaded (offline?)', 'err'); startPoll(); return; }
+  try {
+    const conn = new signalR.HubConnectionBuilder()
+      .withUrl(cfg().gateway + '/hubs/settings', { accessTokenFactory: () => state.access || '' })
+      .withAutomaticReconnect()
+      .build();
+    // On a push, re-apply what changed: a preferences change re-themes the UI live,
+    // a restriction change re-checks the block/limit. The payload carries the type
+    // (see SettingsNotifier); default to re-checking the limit if it's absent.
+    conn.on('settingsChanged', (payload) => {
+      const type = payload && payload.type;
+      log('⚡ settingsChanged push' + (type ? ' (' + type + ')' : ''), 'ok');
+      if (type === 'preferences') refreshPreferences();
+      else refreshLimit();
+    });
+    // After a dropped connection, resync everything we may have missed.
+    conn.onreconnected(() => { $('kHub').textContent = 'connected'; refreshAll(); });
+    conn.onclose(() => { $('kHub').textContent = 'disconnected'; });
+    await conn.start();
+    state.hub = conn;
+    $('kHub').textContent = 'connected';
+    log('SignalR /hubs/settings connected', 'ok');
+  } catch (e) {
+    log('hub connect failed: ' + e.message + ' — falling back to 30s poll', 'err');
+    $('kHub').textContent = 'poll fallback';
+  }
+  startPoll();
+}
+
+function startPoll() {
+  clearInterval(state.pollTimer);
+  // 30s heartbeat: commit foreground time + re-check the limit (also the fallback if the socket drops).
+  state.pollTimer = setInterval(async () => { await reportSessionTime(); await refreshLimit(); }, 30000);
+}
+
+/* ---------------- foreground time tracking ---------------- */
+function startSession() {
+  state.sessionId = uuid();
+  state.sessionStart = Date.now();
+  clearInterval(state.tickTimer);
+  state.tickTimer = setInterval(() => {
+    if (state.sessionStart) $('kTime').textContent = secs((Date.now() - state.sessionStart) / 1000) ;
+  }, 1000);
+}
+function stopTimeTracking(flush) {
+  if (flush) reportSessionTime();
+  state.sessionId = null; state.sessionStart = null;
+  clearInterval(state.tickTimer);
+}
+function stopSession() {
+  stopTimeTracking(true);
+  clearInterval(state.pollTimer);
+  if (state.hub) { try { state.hub.stop(); } catch {} state.hub = null; }
+  $('kHub').textContent = 'disconnected';
+}
+function currentSession() {
+  if (!state.sessionId || !state.sessionStart) return null;
+  return { id: state.sessionId, startedAt: new Date(state.sessionStart).toISOString(), endedAt: new Date().toISOString() };
+}
+async function reportSessionTime() {
+  const session = currentSession();
+  if (!session || !state.appId) return;
+  try { await api('POST', '/api/usage/report', { applicationId: state.appId, session, activities: [] }); }
+  catch (e) { log('session report: ' + e.message, 'err'); }
+}
+
+/* ---------------- activity (task with metrics) ---------------- */
+const TOTAL_STEPS = 5;
+function renderSteps() {
+  const t = state.task;
+  const row = $('stepsRow'); row.innerHTML = '';
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const d = document.createElement('div');
+    d.className = 'step' + (t && i <= t.done ? ' done' : '') + (t && i === t.done + 1 && !t.finished ? ' current' : '');
+    d.textContent = i;
+    row.appendChild(d);
+  }
+  if (t) {
+    $('mSteps').textContent = `${t.done} / ${TOTAL_STEPS}`;
+    $('mHints').textContent = t.hints;
+    $('mErrors').textContent = t.errors;
+  }
+}
+function startTask() {
+  state.task = { id: uuid(), done: 0, hints: 0, errors: 0, startedAt: Date.now(), finished: false };
+  $('startTaskBtn').disabled = true;
+  $('nextStepBtn').disabled = false;
+  $('hintBtn').disabled = false;
+  $('mistakeBtn').disabled = false;
+  renderSteps();
+  log('task started', 'ok');
+  reportActivity(true); // initial live row
+}
+function useHint() { if (state.task && !state.task.finished) { state.task.hints++; renderSteps(); } }
+function makeMistake() { if (state.task && !state.task.finished) { state.task.errors++; renderSteps(); } }
+async function nextStep() {
+  const t = state.task; if (!t || t.finished) return;
+  t.done++;
+  renderSteps();
+  const finished = t.done >= TOTAL_STEPS;
+  t.finished = finished;
+  await reportActivity(!finished); // inProgress=true until the last step
+  if (finished) {
+    $('nextStepBtn').disabled = true; $('hintBtn').disabled = true; $('mistakeBtn').disabled = true;
+    $('startTaskBtn').disabled = false;
+    log('task complete 🎉', 'ok');
+  }
+}
+async function reportActivity(inProgress) {
+  const t = state.task; if (!t || !state.appId) return;
+  const durationSeconds = Math.round((Date.now() - t.startedAt) / 1000);
+  $('mDur').textContent = secs(durationSeconds);
+  const score = Math.round((t.done / TOTAL_STEPS) * 100);
+  const report = {
+    applicationId: state.appId,
+    session: currentSession(),           // commit foreground time alongside the activity
+    activities: [{
+      id: t.id,
+      inProgress,
+      activityType: 'web-lesson',
+      name: 'Reference web lesson',
+      score,
+      occurredAt: new Date().toISOString(),
+      detail: `Step ${t.done}/${TOTAL_STEPS}`,
+      attributes: { platform: 'web' },
+      metrics: {
+        startedViaAction: true,
+        completedViaAction: !inProgress,
+        stepsCompleted: t.done,
+        stepsTotal: TOTAL_STEPS,
+        durationSeconds,
+        hintsShown: t.hints,
+        errorsCount: t.errors,
+      },
+    }],
+  };
+  try {
+    await api('POST', '/api/usage/report', report);
+    log(`usage reported (step ${t.done}/${TOTAL_STEPS}, ${inProgress ? 'in-progress' : 'final'})`, 'ok');
+    await refreshLimit(); // used time grew → may flip lockout
+  } catch (e) { log('usage report: ' + e.message, 'err'); }
+}
+
+/* ---------------- misc ---------------- */
+async function refreshAll() { await refreshPreferences(); await refreshLimit(); }
+function uuid() { return (crypto.randomUUID && crypto.randomUUID()) ||
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }); }
+function secs(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s/60); return m ? `${m}m ${s%60}s` : `${s}s`; }
+
+// Flush time when the tab is hidden/closed, like the mobile app leaving foreground.
+document.addEventListener('visibilitychange', () => { if (document.hidden) reportSessionTime(); });
+window.addEventListener('beforeunload', () => { if (state.sessionId) reportSessionTime(); });
+
+renderSteps();
+log('ready — configure the gateway, then sign in as a child.', 'ok');
+</script>
+</body>
+</html>

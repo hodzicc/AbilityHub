@@ -10,11 +10,27 @@
       "cwd": "FE"
     },
     {
+      "name": "mobile-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8090"],
+      "port": 8090,
+      "autoPort": false,
+      "cwd": "MobileApp/build/web"
+    },
+    {
       "name": "mobile-web",
       "runtimeExecutable": "flutter",
       "runtimeArgs": ["run", "-d", "web-server", "--web-port=8090", "--dart-define=API_BASE_URL=http://localhost:5046"],
       "port": 8090,
       "cwd": "MobileApp"
+    },
+    {
+      "name": "test-web-app",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8091"],
+      "port": 8091,
+      "autoPort": false,
+      "cwd": "TestWebApp"
     }
   ]
 }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAuth, useTranslation, usePreferences } from '@/components/providers'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth, useTranslation } from '@/components/providers'
 import { PageHeader, ConfirmationDialog } from '@/components/shared'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { FontSize, ColorScheme, FontFamily } from '@/lib/types'
-import { FONT_SIZES as fontSizes, COLOR_SCHEMES as colorSchemes, FONT_FAMILIES as fontFamilies } from '@/lib/preferences'
+import type { FontSize, ColorScheme, FontFamily, UIPreferences } from '@/lib/types'
+import { FONT_SIZES as fontSizes, COLOR_SCHEMES as colorSchemes, FONT_FAMILIES as fontFamilies, DEFAULT_PREFERENCES, recordToPrefs } from '@/lib/preferences'
 import { PreferencePreview } from '@/components/preferences'
 import { toast } from 'sonner'
 import { Smartphone, Globe, RefreshCw, Loader2, Info } from 'lucide-react'
@@ -32,7 +32,17 @@ import {
 export default function PreferencesPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const { preferences, updatePreferences, resetPreferences } = usePreferences()
+
+  // Per-child editor state. This screen configures accessibility preferences that
+  // are saved to the backend for a child's own app to consume — it is not a global
+  // preference for this dashboard, so the state is local and reseeded whenever the
+  // selected child changes (see the load effect below).
+  const [preferences, setPreferences] = useState<UIPreferences>(DEFAULT_PREFERENCES)
+  const updatePreferences = useCallback(
+    (prefs: Partial<UIPreferences>) => setPreferences(prev => ({ ...prev, ...prefs })),
+    []
+  )
+  const resetPreferences = useCallback(() => setPreferences(DEFAULT_PREFERENCES), [])
 
   const [children, setChildren] = useState<UserProfileResponse[]>([])
   const [selectedChildId, setSelectedChildId] = useState<string>('')
@@ -52,25 +62,16 @@ export default function PreferencesPage() {
       .catch(() => {})
   }, [user?.id])
 
-  // When selected child changes, load their saved preferences from BE
+  // When the selected child changes, reseed the editor from that child's saved
+  // preferences — falling back to defaults when they have no overrides yet, so one
+  // child's settings never bleed into the next.
   useEffect(() => {
     if (!selectedChildId) return
     setIsLoadingChild(true)
     apiGetPreferences(selectedChildId)
-      .then(record => {
-        if (Object.keys(record).length === 0) return // no overrides yet — keep local defaults
-        updatePreferences({
-          fontSize:     (record.fontSize as FontSize)       || preferences.fontSize,
-          colorScheme:  (record.colorScheme as ColorScheme) || preferences.colorScheme,
-          fontFamily:   (record.fontFamily as FontFamily)   || preferences.fontFamily,
-          reducedMotion: record.reducedMotion === 'true',
-          highContrast:  record.highContrast  === 'true',
-          soundEnabled:  record.soundEnabled  !== 'false',
-        })
-      })
-      .catch(() => {})
+      .then(record => setPreferences(recordToPrefs(record)))
+      .catch(() => setPreferences(DEFAULT_PREFERENCES))
       .finally(() => setIsLoadingChild(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChildId])
 
   const handleSave = async () => {
