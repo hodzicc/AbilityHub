@@ -218,7 +218,7 @@
   <!-- ============ PREFERENCES ============ -->
   <div class="card hidden" id="prefsCard">
     <h2>4 · Preference sync</h2>
-    <small>Resolved from Settings and applied to this app's UI. Change them in the web dashboard → this re-applies on the next re-sync.</small>
+    <small>Resolved from Settings and applied to this app's UI. Change them in the web dashboard → this re-themes live over SignalR (or on the next re-sync).</small>
     <div class="kv" id="prefsKv" style="margin-top:12px"></div>
   </div>
 
@@ -539,9 +539,17 @@ async function connectHub() {
       .withUrl(cfg().gateway + '/hubs/settings', { accessTokenFactory: () => state.access || '' })
       .withAutomaticReconnect()
       .build();
-    // On a push, re-check the limit only (preferences stay fixed for the session).
-    conn.on('settingsChanged', () => { log('⚡ settingsChanged push', 'ok'); refreshLimit(); });
-    conn.onreconnected(() => { $('kHub').textContent = 'connected'; refreshLimit(); });
+    // On a push, re-apply what changed: a preferences change re-themes the UI live,
+    // a restriction change re-checks the block/limit. The payload carries the type
+    // (see SettingsNotifier); default to re-checking the limit if it's absent.
+    conn.on('settingsChanged', (payload) => {
+      const type = payload && payload.type;
+      log('⚡ settingsChanged push' + (type ? ' (' + type + ')' : ''), 'ok');
+      if (type === 'preferences') refreshPreferences();
+      else refreshLimit();
+    });
+    // After a dropped connection, resync everything we may have missed.
+    conn.onreconnected(() => { $('kHub').textContent = 'connected'; refreshAll(); });
     conn.onclose(() => { $('kHub').textContent = 'disconnected'; });
     await conn.start();
     state.hub = conn;

@@ -19,6 +19,8 @@ interface ActivityCalendarProps {
   childIds: string[]
   applicationIds: string[] | null
   appNames: Record<string, { name: string; color: string }>
+  /** Bumped by the parent on each realtime usage change to force a re-fetch. */
+  reloadKey?: number
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -30,7 +32,7 @@ const dateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
  * old GitHub-style 90-day heatmap — clicking a day lists everything assigned to the
  * child(ren) that day, including days in the past.
  */
-export function ActivityCalendar({ childIds, applicationIds, appNames }: ActivityCalendarProps) {
+export function ActivityCalendar({ childIds, applicationIds, appNames, reloadKey }: ActivityCalendarProps) {
   const { t, locale } = useTranslation()
   const localeTag = locale === 'bs' ? 'bs-BA' : 'en-US'
 
@@ -65,7 +67,7 @@ export function ActivityCalendar({ childIds, applicationIds, appNames }: Activit
       })
       .finally(() => { if (active) setIsLoadingMonth(false) })
     return () => { active = false }
-  }, [childIds, applicationIds, year, month])
+  }, [childIds, applicationIds, year, month, reloadKey])
 
   const openDay = (date: Date) => {
     const key = dateKey(date)

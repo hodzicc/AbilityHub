@@ -162,6 +162,11 @@ export default function StatisticsPage() {
     return () => { active = false }
   }, [categoryAppIds, childrenData])
 
+  // Bumped on every realtime usage change so the child-driven chart/calendar
+  // components (which fetch their own windows) re-fetch too — the page's own
+  // figures update via refetchChild below, but those children don't.
+  const [realtimeTick, setRealtimeTick] = useState(0)
+
   // Realtime: when a child reports usage (time / activity / live step progress),
   // re-fetch just that child's dashboard so metrics and time update instantly —
   // both the unfiltered base and, if a category filter is active, the filtered view.
@@ -170,6 +175,7 @@ export default function StatisticsPage() {
     setChildrenData(prev =>
       prev.map(d => (d.profile.id === childId ? { ...d, dashboard } : d))
     )
+    setRealtimeTick(v => v + 1)
   }, [])
 
   useUsageRealtime(childrenData.map(d => d.profile.id), refetchChild)
@@ -410,7 +416,7 @@ export default function StatisticsPage() {
               {/* Placed explicitly so each row's pair (chart|chart, activity|heatmap)
                   shares the row height via the grid's default items-stretch. */}
               <div className="lg:col-span-2 lg:row-start-1">
-                <UsageByAppChart childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} />
+                <UsageByAppChart childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} reloadKey={realtimeTick} />
               </div>
 
                 <Card className="lg:col-span-2 lg:row-start-2">
@@ -491,7 +497,7 @@ export default function StatisticsPage() {
                 </Card>
 
               <div className="lg:col-start-3 lg:row-start-1">
-                <ActivityMetricsChart childIds={chartChildIds} applicationIds={categoryAppIds} />
+                <ActivityMetricsChart childIds={chartChildIds} applicationIds={categoryAppIds} reloadKey={realtimeTick} />
               </div>
 
               <Card className="flex flex-col lg:col-start-3 lg:row-start-2">
@@ -499,7 +505,7 @@ export default function StatisticsPage() {
                   <CardTitle className="text-lg">{t('statistics.activityHeatmap')}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-center">
-                  <ActivityCalendar childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} />
+                  <ActivityCalendar childIds={chartChildIds} applicationIds={categoryAppIds} appNames={appNames} reloadKey={realtimeTick} />
                 </CardContent>
               </Card>
             </div>

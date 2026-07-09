@@ -17,6 +17,8 @@ interface Props {
   childIds: string[]
   applicationIds: string[] | null
   appNames: Record<string, { name: string; color: string }>
+  /** Bumped by the parent on each realtime usage change to force a re-fetch. */
+  reloadKey?: number
 }
 
 interface AppBar {
@@ -26,7 +28,7 @@ interface AppBar {
 }
 
 /** Total usage minutes per application over a 7-day window, with its own week nav. */
-export function UsageByAppChart({ childIds, applicationIds, appNames }: Props) {
+export function UsageByAppChart({ childIds, applicationIds, appNames, reloadKey }: Props) {
   const { t } = useTranslation()
   const { locale } = useLanguage()
   const { resolvedTheme } = useTheme()
@@ -72,7 +74,7 @@ export function UsageByAppChart({ childIds, applicationIds, appNames }: Props) {
         }
       })
     return () => { active = false }
-  }, [childIds, applicationIds, appNames, range, locale, t])
+  }, [childIds, applicationIds, appNames, range, locale, t, reloadKey])
 
   return (
     <Card>
