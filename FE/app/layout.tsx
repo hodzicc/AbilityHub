@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Nunito, Atkinson_Hyperlegible } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
-import { AuthProvider, LanguageProvider, PreferencesProvider } from '@/components/providers'
+import { AuthProvider, LanguageProvider } from '@/components/providers'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -47,8 +47,6 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false
 }
 
 export default function RootLayout({
@@ -67,10 +65,8 @@ export default function RootLayout({
         >
           <LanguageProvider>
             <AuthProvider>
-              <PreferencesProvider>
-                {children}
-                <Toaster />
-              </PreferencesProvider>
+              {children}
+              <Toaster />
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

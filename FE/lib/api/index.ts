@@ -63,7 +63,22 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.status === 204 ? (undefined as T) : res.json()
 }
 
-async function tryRefresh(): Promise<boolean> {
+// A single in-flight refresh shared by all callers. Without this, several
+// requests failing 401 at once would each POST /refresh independently; with
+// rotating refresh tokens the first rotation invalidates the token the others
+// are still using, causing spurious logouts. Concurrent callers await the same
+// promise instead.
+let refreshInFlight: Promise<boolean> | null = null
+
+function tryRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = doRefresh().finally(() => {
+    refreshInFlight = null
+  })
+  return refreshInFlight
+}
+
+async function doRefresh(): Promise<boolean> {
   const rt = getRefreshToken()
   if (!rt) return false
   try {

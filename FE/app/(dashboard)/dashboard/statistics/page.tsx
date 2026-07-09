@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 import {
   apiGetChildren,
   apiGetDashboard,
-  apiGetApp,
+  apiGetApps,
   type DashboardResponse,
   type UserProfileResponse,
 } from '@/lib/api'
@@ -91,22 +91,23 @@ export default function StatisticsPage() {
         )
         setChildrenData(data)
 
-        // Collect unique app IDs and fetch names
+        // Collect the app IDs referenced by these dashboards, then resolve their
+        // display info from a single catalog fetch (including inactive apps, which
+        // old activities may still reference) rather than one request per app.
         const appIds = new Set<string>()
         data.forEach(d => d.dashboard?.perApp.forEach(a => appIds.add(a.applicationId)))
         data.forEach(d => d.dashboard?.recentActivities.forEach(a => appIds.add(a.applicationId)))
 
+        const appById = new Map((await apiGetApps(true).catch(() => [])).map(a => [a.id, a]))
         const names: Record<string, { name: string; color: string; category: AppCategory }> = {}
-        await Promise.all(
-          Array.from(appIds).map(async id => {
-            const app = await apiGetApp(id).catch(() => null)
-            names[id] = {
-              name: app?.name || t('common.unknown'),
-              color: app?.color || DEFAULT_APP_COLOR,
-              category: (app?.category as AppCategory) || 'education',
-            }
-          })
-        )
+        appIds.forEach(id => {
+          const app = appById.get(id)
+          names[id] = {
+            name: app?.name || t('common.unknown'),
+            color: app?.color || DEFAULT_APP_COLOR,
+            category: (app?.category as AppCategory) || 'education',
+          }
+        })
         setAppNames(names)
       } catch {
         toast.error(t('statistics.loadError'))
