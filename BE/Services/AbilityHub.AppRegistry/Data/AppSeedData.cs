@@ -74,6 +74,18 @@ namespace AbilityHub.AppRegistry.Data
                     MinAge = 3, MaxAge = 12, IsActive = true,
                     FeaturesJson = "[\"Vježbe prstiju\",\"Crtanje linija\",\"Hvatanje objekata\",\"Prilagodljiva osjetljivost\"]",
                     CreateUserId = SystemId, CreatedAt = now
+                },
+                new Application
+                {
+                    // Reference WEB app — used to validate the web integration path
+                    // (SSO, preference sync, usage+metrics, realtime lockout). See TestWebApp/.
+                    Id = Guid.NewGuid(), Key = "reference-web", Name = "Referentna Web Aplikacija",
+                    Description = "Referentna web aplikacija za testiranje integracije web aplikacija: centralizovana prijava, sinhronizacija preferencija, izvještavanje o aktivnostima i zaključavanje u realnom vremenu.",
+                    Category = "education", IconName = "Globe", Color = "#0EA5E9",
+                    Platform = "Web", Version = "1.0.0", DataFormat = "abilityhub.usage.v1",
+                    MinAge = 4, MaxAge = 18, IsActive = true,
+                    FeaturesJson = "[\"Centralizovana prijava (SSO)\",\"Sinhronizacija preferencija\",\"Metrikе pristupačnosti\",\"Zaključavanje u realnom vremenu\"]",
+                    CreateUserId = SystemId, CreatedAt = now
                 }
             );
 
