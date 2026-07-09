@@ -633,9 +633,12 @@
   },
   "qrPairing": {
     "title": "Prijava putem QR koda",
-    "description": "{name} se može prijaviti u mobilnu aplikaciju skeniranjem ovog koda umjesto unosa lozinke.",
+    "description": "{name} se može prijaviti skeniranjem ovog koda u mobilnoj aplikaciji, ili lijepljenjem tokena ispod u web aplikaciju koja ne može skenirati.",
     "expiresAt": "Kod ističe u {time} — generišite novi kod po potrebi.",
     "regenerate": "Generiši novi kod",
+    "copyToken": "Kopiraj token",
+    "copied": "Token kopiran",
+    "webHint": "Za web aplikacije, kopirajte token i zalijepite ga u polje za prijavu aplikacije.",
     "tabLabel": "Prijava",
     "loadError": "Greška pri generisanju QR koda"
   },

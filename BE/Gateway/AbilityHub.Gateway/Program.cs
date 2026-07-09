@@ -34,10 +34,11 @@ builder.Services.AddHealthChecks();
 
 // Allowed browser origins are configurable (Cors:AllowedOrigins) so the web app,
 // the Flutter-web reference app, and any future client can be added without code
-// changes. Defaults cover the Next.js web app (3000) and the Flutter web dev
-// server when run on a fixed port (8090) — see MobileApp/README.md.
+// changes. Defaults cover the Next.js web app (3000), the Flutter web dev server
+// when run on a fixed port (8090 — see MobileApp/README.md), and the reference
+// web test harness (8091 — see TestWebApp/README.md).
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:3000", "http://localhost:8090"];
+    ?? ["http://localhost:3000", "http://localhost:8090", "http://localhost:8091"];
 
 const string corsPolicy = "web";
 builder.Services.AddCors(options =>
