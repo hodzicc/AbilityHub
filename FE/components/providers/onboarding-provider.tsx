@@ -1,8 +1,9 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useAuth } from './auth-provider'
 import { HelpGuide } from '@/components/onboarding'
+import { apiMarkHelpGuideSeen } from '@/lib/api'
 
 interface OnboardingContextType {
   /** Open the illustrated help guide on demand (e.g. from the header Help button). */
@@ -15,37 +16,45 @@ export const useOnboarding = () => useContext(OnboardingContext)
 
 /**
  * Hosts the illustrated help guide once for the whole dashboard so it can be (a)
- * auto-shown to a brand-new parent on first login and (b) re-opened any time via
- * the header Help button. The "already seen" flag is per-user in localStorage, so
- * it auto-opens exactly once per parent account but the Help button always works.
- * The guide only explains the app — it performs no actions.
+ * auto-shown to a brand-new guardian on first sign-in and (b) re-opened any time via the
+ * header Help button. The guide only explains the app — it performs no actions.
+ *
+ * Whether it has already been seen is part of the guardian's profile on the server, not
+ * browser storage: the same person signing in from a second device or browser should not
+ * be walked through the introduction again. The flag arrives with the profile that is
+ * fetched on every sign-in, so reading it costs no extra request.
  */
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
 
-  const seenKey = user ? `abilityhub_onboarding_seen_${user.id}` : null
+  // Set once the guide has been dismissed in this session, so the auto-open effect does
+  // not fire again before the profile is re-fetched.
+  const [dismissed, setDismissed] = useState(false)
+  // Guards against auto-opening twice for the same account — React mounts components
+  // twice in development, and the server round-trip below is not instant.
+  const autoOpenedFor = useRef<string | null>(null)
 
   const openWizard = useCallback(() => setOpen(true), [])
 
-  const markSeen = useCallback(() => {
-    if (seenKey && typeof window !== 'undefined') localStorage.setItem(seenKey, '1')
-  }, [seenKey])
-
   const closeWizard = useCallback(() => {
-    markSeen()
     setOpen(false)
-  }, [markSeen])
+    setDismissed(true)
+    // Recorded on close rather than on open: a guide marked as read before the guardian
+    // has actually seen it would silently never appear again. Best effort — failing to
+    // persist the flag only means the guide shows once more, which is harmless.
+    void apiMarkHelpGuideSeen().catch(() => {})
+  }, [])
 
-  // First-run: auto-open once for a parent who hasn't seen it yet. The "seen" flag
-  // is written on close (not here), so React StrictMode's double-mount in dev can't
-  // mark it seen before the wizard ever shows.
+  // First run: auto-open once for a guardian who has not dismissed it yet. Admins are
+  // skipped — the guide describes the guardian workflow.
   useEffect(() => {
-    if (!user || user.role !== 'parent' || !seenKey) return
-    if (typeof window !== 'undefined' && !localStorage.getItem(seenKey)) {
-      setOpen(true)
-    }
-  }, [user?.id, user?.role, seenKey])
+    if (!user || user.role !== 'parent') return
+    if (user.helpGuideSeenAt || dismissed) return
+    if (autoOpenedFor.current === user.id) return
+    autoOpenedFor.current = user.id
+    setOpen(true)
+  }, [user, dismissed])
 
   return (
     <OnboardingContext.Provider value={{ openWizard }}>

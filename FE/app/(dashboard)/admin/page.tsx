@@ -411,7 +411,7 @@ export default function AdminPage() {
                                 title={t('admin.viewProfile')}
                                 asChild
                               >
-                                <Link href={`/dashboard/children/${item.id}`}>
+                                <Link href={`/children/${item.id}`}>
                                   <ExternalLink className="h-4 w-4" />
                                 </Link>
                               </Button>

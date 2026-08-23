@@ -93,7 +93,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+            <DropdownMenuItem onClick={() => router.push('/settings')}>
               <User className="mr-2 h-4 w-4" />
               {t('settings.account')}
             </DropdownMenuItem>

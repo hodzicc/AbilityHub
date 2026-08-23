@@ -44,7 +44,7 @@ interface DashStats {
 function getQuickActions(t: (key: string) => string) {
   return [
     {
-      href: '/dashboard/children',
+      href: '/children',
       icon: Users,
       label: t('dashboard.quickActionChildren'),
       description: t('dashboard.quickActionChildrenDesc'),
@@ -52,7 +52,7 @@ function getQuickActions(t: (key: string) => string) {
       shadow: 'shadow-indigo-200 dark:shadow-indigo-900/40',
     },
     {
-      href: '/dashboard/applications',
+      href: '/applications',
       icon: AppWindow,
       label: t('dashboard.quickActionApplications'),
       description: t('dashboard.quickActionApplicationsDesc'),
@@ -60,7 +60,7 @@ function getQuickActions(t: (key: string) => string) {
       shadow: 'shadow-orange-200 dark:shadow-orange-900/40',
     },
     {
-      href: '/dashboard/statistics',
+      href: '/statistics',
       icon: BarChart3,
       label: t('dashboard.quickActionStatistics'),
       description: t('dashboard.quickActionStatisticsDesc'),
@@ -68,7 +68,7 @@ function getQuickActions(t: (key: string) => string) {
       shadow: 'shadow-emerald-200 dark:shadow-emerald-900/40',
     },
     {
-      href: '/dashboard/settings',
+      href: '/settings',
       icon: Settings,
       label: t('dashboard.quickActionSettings'),
       description: t('dashboard.quickActionSettingsDesc'),
@@ -93,7 +93,7 @@ function getPlatformCards(t: (key: string) => string, isAdmin: boolean) {
       title: t('dashboard.platformCard2Title'),
       description: t('dashboard.platformCard2Desc'),
       color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
-      href: '/dashboard/preferences',
+      href: '/preferences',
     }]),
   ]
 }
@@ -233,7 +233,7 @@ export default function DashboardPage() {
           </div>
           {user?.role !== 'admin' && (
             <Button className="bg-white text-indigo-700 hover:bg-indigo-50 shadow-sm w-fit" asChild>
-              <Link href="/dashboard/children">
+              <Link href="/children">
                 <Plus className="mr-2 h-4 w-4" />
                 {t('children.addChild')}
               </Link>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Button variant="outline" size="sm" className="w-fit shrink-0" asChild>
-            <Link href="/dashboard/statistics">
+            <Link href="/statistics">
               {t('dashboard.checkInReminderAction')}
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Link>
@@ -276,7 +276,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold">{t('dashboard.weeklyProgress')}</CardTitle>
             <Button variant="ghost" size="sm" className="text-primary" asChild>
-              <Link href="/dashboard/statistics">
+              <Link href="/statistics">
                 {t('dashboard.viewAll')}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>

@@ -24,10 +24,14 @@ export function LoginForm() {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const success = await login(email, password)
-      if (success) {
+      const result = await login(email, password)
+      if (result.ok) {
         toast.success(t('auth.loginSuccess'))
         router.push('/dashboard')
+      } else if (result.reason === 'child-account') {
+        // Not a credentials problem — say what actually happened, at length, since the
+        // guardian reading this needs to know where the child should sign in instead.
+        toast.error(t('auth.childAccountNotAllowed'), { duration: 8000 })
       } else {
         toast.error(t('auth.loginError'))
       }

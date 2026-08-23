@@ -9,6 +9,8 @@ export interface User {
   lastName: string
   role: UserRole
   avatar?: string
+  /** When this guardian dismissed the introductory guide; null until they have. */
+  helpGuideSeenAt: Date | null
   createdAt: Date
   lastLogin?: Date
 }

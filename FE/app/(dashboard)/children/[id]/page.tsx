@@ -155,7 +155,7 @@ export default function ChildProfilePage({ params }: { params: Promise<{ id: str
     <div className="space-y-6">
       <PageHeader title={t('children.childProfile')}>
         <Button variant="outline" asChild>
-          <Link href="/dashboard/children">
+          <Link href="/children">
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('common.back')}
           </Link>

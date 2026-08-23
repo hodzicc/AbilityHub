@@ -71,7 +71,7 @@ export function AppCard({ app, assignedCount = 0, isAdmin = false, onEdit, onTog
             className="flex-1 group/btn hover:border-primary hover:text-primary"
             asChild
           >
-            <Link href={`/dashboard/applications/${app.id}`}>
+            <Link href={`/applications/${app.id}`}>
               {t('applications.details')}
               <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
             </Link>

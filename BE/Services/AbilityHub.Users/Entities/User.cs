@@ -20,6 +20,15 @@ public class User : IAuditable
     public DateTime? DateOfBirth { get; set; }
     public string? Gender { get; set; }
 
+    /// <summary>
+    /// When this guardian first dismissed the introductory help guide; null while they
+    /// have not seen it yet. Kept here rather than in browser storage so the guide does
+    /// not reappear on every new device or browser the same person signs in from.
+    /// A timestamp rather than a flag: it carries the same yes/no answer and additionally
+    /// says when, which is useful when reviewing how onboarding is actually used.
+    /// </summary>
+    public DateTime? HelpGuideSeenAt { get; set; }
+
     public Guid CreateUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? UpdateUserId { get; set; }

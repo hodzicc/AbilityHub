@@ -50,7 +50,7 @@ export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardPr
       <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
       <CardHeader className="pb-3 pt-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/children/${child.id}`} className="flex items-center gap-3">
+          <Link href={`/children/${child.id}`} className="flex items-center gap-3">
             <Avatar className="h-12 w-12 shadow-sm">
               <AvatarFallback className={`bg-gradient-to-br ${gradient} text-white font-semibold text-sm`}>
                 {child.name.slice(0, 2).toUpperCase()}
@@ -85,7 +85,7 @@ export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardPr
                 )}
                 {onDelete && (
                   <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                    {t('children.deleteChild')}
+                    {t('children.deactivateChild')}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -115,7 +115,7 @@ export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardPr
         </div>
 
         <Button variant="outline" size="sm" className="w-full group/btn hover:border-primary hover:text-primary" asChild>
-          <Link href={`/dashboard/children/${child.id}`}>
+          <Link href={`/children/${child.id}`}>
             {t('children.childProfile')}
             <ChevronRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
           </Link>

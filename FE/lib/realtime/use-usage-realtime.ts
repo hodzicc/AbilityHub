@@ -7,9 +7,27 @@
 
 import { useEffect, useRef } from 'react'
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr'
-import { getAccessToken, API_BASE_URL } from '@/lib/api'
+import { API_BASE_URL } from '@/lib/api'
 
 const BASE = API_BASE_URL
+
+/**
+ * Fetches a hub token from the BFF. A browser WebSocket can't send an Authorization
+ * header, so SignalR needs the token as a value — this is the one path where it reaches
+ * page scripts, and it is fetched per connection and kept only in the connection's memory,
+ * never in storage. Called again automatically on every reconnect, so a token that expired
+ * while the connection was down is replaced rather than reused.
+ */
+async function fetchHubToken(): Promise<string> {
+  try {
+    const res = await fetch('/api/session/realtime-token')
+    if (!res.ok) return ''
+    const data = await res.json()
+    return typeof data?.token === 'string' ? data.token : ''
+  } catch {
+    return ''
+  }
+}
 
 export function useUsageRealtime(childIds: string[], onChanged: (childId: string) => void) {
   // Keep the latest callback without forcing a reconnect when it changes.
@@ -25,7 +43,7 @@ export function useUsageRealtime(childIds: string[], onChanged: (childId: string
     let cancelled = false
 
     const connection: HubConnection = new HubConnectionBuilder()
-      .withUrl(`${BASE}/hubs/usage`, { accessTokenFactory: () => getAccessToken() ?? '' })
+      .withUrl(`${BASE}/hubs/usage`, { accessTokenFactory: fetchHubToken })
       .withAutomaticReconnect()
       .build()
 

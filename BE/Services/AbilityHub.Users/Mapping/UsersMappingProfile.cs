@@ -26,6 +26,9 @@ public class UsersMappingProfile : Profile
             .ForMember(d => d.Email, o => o.Ignore())
             .ForMember(d => d.RoleId, o => o.Ignore())
             .ForMember(d => d.IsActive, o => o.Ignore())
+            // Onboarding state is not part of a profile edit — it has its own endpoint,
+            // so a name change can never reset or set it as a side effect.
+            .ForMember(d => d.HelpGuideSeenAt, o => o.Ignore())
             .ForMember(d => d.CreateUserId, o => o.Ignore())
             .ForMember(d => d.CreatedAt, o => o.Ignore())
             .ForMember(d => d.UpdateUserId, o => o.Ignore())
@@ -37,6 +40,7 @@ public class UsersMappingProfile : Profile
             .ForMember(d => d.CreateUserId, o => o.MapFrom(s => s.GuardianId ?? s.UserId))
             .ForMember(d => d.CreatedAt, o => o.Ignore())
             .ForMember(d => d.IsActive, o => o.Ignore())
+            .ForMember(d => d.HelpGuideSeenAt, o => o.Ignore())
             .ForMember(d => d.UpdateUserId, o => o.Ignore())
             .ForMember(d => d.UpdatedAt, o => o.Ignore());
     }

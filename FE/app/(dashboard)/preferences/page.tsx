@@ -51,9 +51,10 @@ export default function PreferencesPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
   const [previewPlatform, setPreviewPlatform] = useState<'mobile' | 'web'>('mobile')
 
-  // Load children list on mount
+  // Load children list on mount. Skipped for admins — they have no children, so the
+  // request would only ever come back empty (see the role guard before the render).
   useEffect(() => {
-    if (!user) return
+    if (!user || user.role === 'admin') return
     apiGetChildren(user.id)
       .then(list => {
         setChildren(list)
@@ -105,6 +106,22 @@ export default function PreferencesPage() {
     resetPreferences()
     setIsResetConfirmOpen(false)
     toast.success(t('settings.resetSuccess'))
+  }
+
+  // Accessibility preferences are configured per child, and an admin is nobody's guardian —
+  // there is nothing here for them to set. Reachable only via a direct URL (the sidebar
+  // hides the item). Mirrors the guard on the statistics page.
+  if (user?.role === 'admin') {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t('settings.preferences')} description={t('settings.syncDesc')} />
+        <Card className="border-0 shadow-sm">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            {t('settings.preferencesNotAvailableForAdmin')}
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

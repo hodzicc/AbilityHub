@@ -100,6 +100,30 @@ public class UsersController : ControllerBase
         return Ok(_mapper.Map<UserProfileResponse>(user));
     }
 
+    // PUT: api/users/me/help-guide-seen — records that the caller has read the introductory
+    // guide. Separate from the profile update because that request requires a full name, so
+    // marking the guide as seen through it would mean resending unrelated fields. Always acts
+    // on the caller's own account: nobody dismisses the guide on someone else's behalf.
+    [HttpPut("me/help-guide-seen")]
+    public async Task<IActionResult> MarkHelpGuideSeen()
+    {
+        var user = await _userRepository.GetByIdAsync(User.GetUserId());
+        if (user is null)
+            return NotFound();
+
+        // Keep the first dismissal: re-opening the guide from the header later is a normal
+        // thing to do and shouldn't rewrite when onboarding actually happened.
+        if (user.HelpGuideSeenAt is null)
+        {
+            user.HelpGuideSeenAt = DateTime.UtcNow;
+            user.UpdateUserId = user.Id;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+        }
+
+        return Ok(_mapper.Map<UserProfileResponse>(user));
+    }
+
     // GET: api/users/{guardianId}/children — children of a guardian (admin or that guardian).
     [HttpGet("{guardianId:guid}/children")]
     public async Task<IActionResult> GetChildren(Guid guardianId)

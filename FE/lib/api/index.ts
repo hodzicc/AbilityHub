@@ -1,59 +1,29 @@
-// Central API client — all calls go through the Gateway at NEXT_PUBLIC_API_URL.
+// Central API client. Calls go to same-origin `/api/*`, which the Next.js route handlers
+// (the BFF layer in app/api/) forward to the gateway after attaching the access token from
+// an HttpOnly cookie. Nothing in this module ever sees a token: authentication, refresh and
+// sign-out all happen server-side.
 
 import { ROLE_ID } from '@/lib/constants'
 import type { ActivityMetrics, WeeklyCheckIn } from '@/lib/types'
 
-// API gateway base URL — read from the environment (.env.local: NEXT_PUBLIC_API_URL).
-// Exported so other modules (e.g. the realtime hook) don't re-hardcode it.
+// Direct gateway address, still needed for the SignalR hub: a WebSocket cannot be proxied
+// through a route handler, so the realtime connection talks to the gateway itself and gets
+// its token from /api/session/realtime-token.
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5046'
-const BASE = API_BASE_URL
-
-// ---------- token helpers ----------
-
-export function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('ah_access_token')
-}
-
-export function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('ah_refresh_token')
-}
-
-export function setTokens(access: string, refresh: string) {
-  localStorage.setItem('ah_access_token', access)
-  localStorage.setItem('ah_refresh_token', refresh)
-}
-
-export function clearTokens() {
-  localStorage.removeItem('ah_access_token')
-  localStorage.removeItem('ah_refresh_token')
-}
 
 // ---------- base fetch ----------
 
+/**
+ * Same-origin request to the BFF. The proxy adds the bearer token, refreshes it on 401 and
+ * retries once, so callers only ever see the final outcome.
+ */
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getAccessToken()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers })
-
-  // Token refresh on 401
-  if (res.status === 401) {
-    const refreshed = await tryRefresh()
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${getAccessToken()}`
-      const retry = await fetch(`${BASE}${path}`, { ...options, headers })
-      if (!retry.ok) throw new ApiError(retry.status, await retry.text())
-      return retry.status === 204 ? (undefined as T) : retry.json()
-    }
-    clearTokens()
-    throw new ApiError(401, 'Unauthorized')
-  }
+  const res = await fetch(path, { ...options, headers })
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -61,40 +31,6 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
 
   return res.status === 204 ? (undefined as T) : res.json()
-}
-
-// A single in-flight refresh shared by all callers. Without this, several
-// requests failing 401 at once would each POST /refresh independently; with
-// rotating refresh tokens the first rotation invalidates the token the others
-// are still using, causing spurious logouts. Concurrent callers await the same
-// promise instead.
-let refreshInFlight: Promise<boolean> | null = null
-
-function tryRefresh(): Promise<boolean> {
-  if (refreshInFlight) return refreshInFlight
-  refreshInFlight = doRefresh().finally(() => {
-    refreshInFlight = null
-  })
-  return refreshInFlight
-}
-
-async function doRefresh(): Promise<boolean> {
-  const rt = getRefreshToken()
-  if (!rt) return false
-  try {
-    const res = await fetch(`${BASE}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: rt }),
-    })
-    if (!res.ok) return false
-    const data: AuthResponse = await res.json()
-    if (data.success) {
-      setTokens(data.accessToken, data.refreshToken)
-      return true
-    }
-  } catch {}
-  return false
 }
 
 export class ApiError extends Error {
@@ -105,10 +41,12 @@ export class ApiError extends Error {
 
 // ---------- response types (mirrors BE DTOs) ----------
 
+/**
+ * What the BFF returns for sign-in and registration. The tokens themselves stay on the
+ * server, in HttpOnly cookies — deliberately absent from this shape.
+ */
 export interface AuthResponse {
   success: boolean
-  accessToken: string
-  refreshToken: string
   message: string
 }
 
@@ -121,6 +59,8 @@ export interface UserProfileResponse {
   isActive: boolean
   dateOfBirth?: string  // ISO date string
   gender?: string
+  /** When this guardian dismissed the introductory guide; absent until they have. */
+  helpGuideSeenAt?: string
   createdAt: string
 }
 
@@ -270,7 +210,7 @@ export interface UserSummaryResponse {
 // ---------- Auth ----------
 
 export async function apiLogin(email: string, password: string): Promise<AuthResponse> {
-  const res = await fetch(`${BASE}/api/auth/login`, {
+  const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -286,7 +226,7 @@ export async function apiRegister(
   firstName: string,
   lastName: string
 ): Promise<AuthResponse> {
-  const res = await fetch(`${BASE}/api/auth/register`, {
+  const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, firstName, lastName, roleId: ROLE_ID.PARENT }),
@@ -296,11 +236,9 @@ export async function apiRegister(
   return data
 }
 
-export async function apiLogout(refreshToken: string): Promise<void> {
-  await apiFetch('/api/auth/logout', {
-    method: 'POST',
-    body: JSON.stringify({ refreshToken }),
-  }).catch(() => {})
+/** Revokes the refresh token and clears the session cookies. The token itself is read server-side. */
+export async function apiLogout(): Promise<void> {
+  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
 }
 
 // ---------- Users ----------
@@ -355,6 +293,14 @@ export async function apiUpdateProfile(
     method: 'PUT',
     body: JSON.stringify(data),
   })
+}
+
+/**
+ * Records that the signed-in guardian has read the introductory guide. Stored on their
+ * profile rather than in browser storage, so the guide does not reappear on another device.
+ */
+export async function apiMarkHelpGuideSeen(): Promise<UserProfileResponse> {
+  return apiFetch('/api/users/me/help-guide-seen', { method: 'PUT' })
 }
 
 export async function apiGetChildren(guardianId: string): Promise<UserProfileResponse[]> {

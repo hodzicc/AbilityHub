@@ -10,5 +10,7 @@ public class UserProfileResponse
     public bool IsActive { get; set; }
     public DateTime? DateOfBirth { get; set; }
     public string? Gender { get; set; }
+    /// <summary>Null until the guardian has dismissed the introductory help guide.</summary>
+    public DateTime? HelpGuideSeenAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }

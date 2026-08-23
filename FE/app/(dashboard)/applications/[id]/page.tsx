@@ -254,7 +254,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
             </Button>
           )}
           <Button variant="outline" asChild>
-            <Link href="/dashboard/applications">
+            <Link href="/applications">
               <ArrowLeft className="mr-2 h-4 w-4" />
               {t('common.back')}
             </Link>
@@ -372,7 +372,7 @@ export default function ApplicationDetailPage({ params }: { params: Promise<{ id
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <Link
-                      href={`/dashboard/children/${child.id}`}
+                      href={`/children/${child.id}`}
                       className="font-medium hover:text-primary transition-colors"
                     >
                       {child.name}

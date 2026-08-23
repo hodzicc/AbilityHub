@@ -44,7 +44,7 @@ export default function ChildrenPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editChild, setEditChild] = useState<Child | null>(null)
-  const [deleteChild, setDeleteChild] = useState<Child | null>(null)
+  const [deactivateChild, setDeactivateChild] = useState<Child | null>(null)
   const [progressById, setProgressById] = useState<Record<string, number>>({})
 
   // `expectId` — a just-created child's id. The profile + guardian link are built
@@ -143,16 +143,16 @@ export default function ChildrenPage() {
     }
   }
 
-  const handleDeleteChild = async () => {
-    if (!deleteChild) return
+  const handleDeactivateChild = async () => {
+    if (!deactivateChild) return
     try {
-      await apiDeactivateUser(deleteChild.id)
+      await apiDeactivateUser(deactivateChild.id)
       toast.success(t('children.deactivatedToast'))
-      setDeleteChild(null)
+      setDeactivateChild(null)
       await loadChildren()
     } catch {
       toast.error(t('children.deactivateError'))
-      setDeleteChild(null)
+      setDeactivateChild(null)
     }
   }
 
@@ -208,7 +208,7 @@ export default function ChildrenPage() {
                 setEditChild(child)
                 setIsAddDialogOpen(true)
               }}
-              onDelete={user?.role === 'admin' ? undefined : () => setDeleteChild(child)}
+              onDelete={user?.role === 'admin' ? undefined : () => setDeactivateChild(child)}
             />
           ))}
         </div>
@@ -235,15 +235,15 @@ export default function ChildrenPage() {
         editChild={editChild}
       />
 
-      {/* Delete Confirmation */}
+      {/* Deactivation confirmation — the account is disabled, not erased. */}
       <ConfirmationDialog
-        open={!!deleteChild}
-        onOpenChange={(open) => !open && setDeleteChild(null)}
-        title={t('children.deleteConfirm')}
-        description={t('children.deleteWarning')}
-        confirmLabel={t('common.delete')}
+        open={!!deactivateChild}
+        onOpenChange={(open) => !open && setDeactivateChild(null)}
+        title={t('children.deactivateConfirm')}
+        description={t('children.deactivateWarning')}
+        confirmLabel={t('children.deactivateChild')}
         variant="destructive"
-        onConfirm={handleDeleteChild}
+        onConfirm={handleDeactivateChild}
       />
     </div>
   )
