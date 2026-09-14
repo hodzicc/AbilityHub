@@ -28,7 +28,7 @@ import {
   Cell,
 } from 'recharts'
 import { useTheme } from 'next-themes'
-import { apiGetChildren, apiGetApps, apiGetUserSummary, apiGetDashboard, apiGetAdminDashboard, apiGetWeeklyCheckIns, type DashboardResponse } from '@/lib/api'
+import { apiGetChildren, apiGetApps, apiGetUserSummary, apiGetAggregateDashboard, apiGetPendingCheckIns } from '@/lib/api'
 import { useUsageRealtime } from '@/lib/realtime/use-usage-realtime'
 import { currentWeekStart } from '@/lib/utils'
 import { BellRing } from 'lucide-react'
@@ -143,42 +143,12 @@ export default function DashboardPage() {
       // navigation instead.
       setWatchedIds(isAdmin ? [] : childProfiles.map(c => c.id))
 
-      // Admins see a platform-wide snapshot computed by the backend in one call,
-      // rather than fetching every child's individual dashboard.
-      let perDayMinutes: number[]
-      let avgProgress: number
-
-      if (isAdmin) {
-        const adminDash = await apiGetAdminDashboard().catch(() => null)
-        perDayMinutes = adminDash?.dailyUsage?.map(d => d.minutes) ?? Array(7).fill(0)
-        avgProgress = Math.round(adminDash?.avgProgressPercent ?? 0)
-      } else {
-        const dashboards = await Promise.all(
-          childProfiles.map(c => apiGetDashboard(c.id).catch(() => null as DashboardResponse | null))
-        )
-
-        // Real per-day usage (last 7 days), summed across children. Each child's
-        // dailyUsage is aligned oldest→newest, so we add element-wise.
-        perDayMinutes = Array(7).fill(0) as number[]
-        dashboards.forEach(d => {
-          d?.dailyUsage?.forEach((day, i) => {
-            if (i < perDayMinutes.length) perDayMinutes[i] += day.minutes
-          })
-        })
-
-        // Real step-level progress when reported by the backend (avg of completed/
-        // total sub-steps), averaged across children. Falls back to the "share of
-        // apps used" proxy only until activities start reporting step metrics.
-        const reportedProgress = dashboards
-          .map(d => d?.avgProgressPercent)
-          .filter((v): v is number => v != null)
-        const perAppEntries = dashboards.flatMap(d => d?.perApp ?? [])
-        avgProgress = reportedProgress.length > 0
-          ? Math.round(reportedProgress.reduce((s, v) => s + v, 0) / reportedProgress.length)
-          : perAppEntries.length === 0
-            ? 0
-            : Math.round((perAppEntries.filter(a => a.totalMinutes > 0).length / perAppEntries.length) * 100)
-      }
+      // Both admins and parents get their aggregate snapshot from a single backend
+      // call — an admin across every child, a parent across their own children —
+      // rather than fetching one dashboard per child and summing them in the browser.
+      const dash = await apiGetAggregateDashboard().catch(() => null)
+      const perDayMinutes = dash?.dailyUsage?.map(d => d.minutes) ?? Array(7).fill(0)
+      const avgProgress = Math.round(dash?.avgProgressPercent ?? 0)
 
       const todayUsage = perDayMinutes[perDayMinutes.length - 1] ?? 0
 
@@ -200,13 +170,12 @@ export default function DashboardPage() {
       })
 
       if (!isAdmin && childProfiles.length > 0) {
-        const thisWeek = currentWeekStart()
-        const checkIns = await Promise.all(
-          childProfiles.map(c => apiGetWeeklyCheckIns(c.id).catch(() => []))
-        )
+        // One backend call returns the ids of this week's children still missing a
+        // check-in; names come from the child list we already have.
+        const missingIds = new Set(await apiGetPendingCheckIns(currentWeekStart()).catch(() => []))
         setCheckInReminders(
           childProfiles
-            .filter((c, i) => !checkIns[i].some(k => k.weekStartDate === thisWeek))
+            .filter(c => missingIds.has(c.id))
             .map(c => `${c.firstName} ${c.lastName}`.trim())
         )
       } else {

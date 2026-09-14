@@ -74,7 +74,7 @@ public class UsageStatisticsTests
 
         await service.ReportAsync(childId, CompletedTaskReport(appId));
 
-        var dash = await service.GetDashboardAsync(childId);
+        var dash = await service.GetDashboardAsync([childId]);
 
         Assert.Equal(1, dash.ActivityCount);
         Assert.True(dash.TotalUsageMinutes >= 1, "a ~2 min session should round to at least 1 minute");
@@ -107,7 +107,7 @@ public class UsageStatisticsTests
     {
         var service = BuildService(out _);
 
-        var dash = await service.GetDashboardAsync(Guid.NewGuid());
+        var dash = await service.GetDashboardAsync([Guid.NewGuid()]);
 
         Assert.Equal(0, dash.ActivityCount);
         Assert.Empty(dash.PerApp);
@@ -127,12 +127,12 @@ public class UsageStatisticsTests
         await service.ReportAsync(childId, CompletedTaskReport(appId));
 
         // Filtering to the reporting app keeps the data.
-        var matching = await service.GetDashboardAsync(childId, new[] { appId });
+        var matching = await service.GetDashboardAsync([childId], new[] { appId });
         Assert.Equal(1, matching.ActivityCount);
         Assert.Single(matching.PerApp);
 
         // Filtering to an unrelated app yields nothing — not "everything".
-        var nonMatching = await service.GetDashboardAsync(childId, new[] { otherAppId });
+        var nonMatching = await service.GetDashboardAsync([childId], new[] { otherAppId });
         Assert.Equal(0, nonMatching.ActivityCount);
         Assert.Empty(nonMatching.PerApp);
         Assert.Null(nonMatching.AvgProgressPercent);
@@ -171,7 +171,7 @@ public class UsageStatisticsTests
         await ReportStep(2, done: false);
         await ReportStep(4, done: true);
 
-        var dash = await service.GetDashboardAsync(childId);
+        var dash = await service.GetDashboardAsync([childId]);
         var activity = Assert.Single(dash.RecentActivities); // one row, updated in place
         Assert.Equal(4, activity.Metrics!.StepsCompleted);
         Assert.False(activity.InProgress);

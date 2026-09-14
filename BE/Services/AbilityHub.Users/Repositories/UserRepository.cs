@@ -11,9 +11,14 @@ namespace AbilityHub.Users.Repositories
         public async Task<User?> GetByIdAsync(Guid id)
             => await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
-        public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null, int? roleId = null)
+        public async Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null, int? roleId = null, bool includeInactive = false)
         {
             var query = _context.Users.AsNoTracking().AsQueryable();
+
+            // Active users only by default; deactivated accounts are surfaced only when a
+            // caller explicitly asks (the admin management view, so it can reactivate them).
+            if (!includeInactive)
+                query = query.Where(u => u.IsActive);
 
             if (roleId is not null)
                 query = query.Where(u => u.RoleId == roleId);
@@ -80,6 +85,7 @@ namespace AbilityHub.Users.Repositories
             => await _context.GuardianChildren
                 .Where(gc => gc.GuardianId == guardianId)
                 .Join(_context.Users, gc => gc.ChildId, u => u.Id, (gc, u) => u)
+                .Where(u => u.IsActive) // hide deactivated (deleted) children
                 .AsNoTracking()
                 .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
                 .ToListAsync();

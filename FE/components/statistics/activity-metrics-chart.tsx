@@ -9,7 +9,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { Activity } from 'lucide-react'
-import { apiGetDailyMetrics } from '@/lib/api'
+import { apiGetCombinedDailyMetrics } from '@/lib/api'
 import { WeekNav, weekRange } from './week-nav'
 
 interface Props {
@@ -81,27 +81,21 @@ export function ActivityMetricsChart({ childIds, applicationIds, reloadKey }: Pr
     let active = true
     const loc = locale === 'bs' ? 'bs-BA' : 'en-US'
     const appIds = applicationIds ?? undefined
-    Promise.all(childIds.map(id => apiGetDailyMetrics(id, appIds, range).catch(() => null)))
-      .then(results => {
+    // One backend call returns per-day outcome counts already summed across the children.
+    apiGetCombinedDailyMetrics(childIds, appIds, range).catch(() => null)
+      .then(res => {
         if (!active) return
-        const valid = results.filter(Boolean) as NonNullable<typeof results[number]>[]
-        if (valid.length === 0) { setData([]); return }
-        // Every response covers the same window, so sum element-wise by day index.
-        const dayCount = valid[0].days.length
-        const points: DayPoint[] = []
-        for (let i = 0; i < dayCount; i++) {
-          const date = valid[0].days[i].date
-          points.push({
-            label: new Date(date).toLocaleDateString(loc, { weekday: 'short', day: 'numeric' }),
-            hints: valid.reduce((s, r) => s + (r.days[i]?.hints ?? 0), 0),
-            completed: valid.reduce((s, r) => s + (r.days[i]?.completed ?? 0), 0),
-            notCompleted: valid.reduce((s, r) => s + (r.days[i]?.notCompleted ?? 0), 0),
-            stepBacks: valid.reduce((s, r) => s + (r.days[i]?.stepBacks ?? 0), 0),
-          })
-        }
+        if (!res) { setData([]); return }
+        const points: DayPoint[] = res.days.map(d => ({
+          label: new Date(d.date).toLocaleDateString(loc, { weekday: 'short', day: 'numeric' }),
+          hints: d.hints,
+          completed: d.completed,
+          notCompleted: d.notCompleted,
+          stepBacks: d.stepBacks,
+        }))
         setData(points)
         const fmt = (iso: string) => new Date(iso).toLocaleDateString(loc, { day: 'numeric', month: 'short' })
-        setRangeLabel(`${fmt(valid[0].rangeStart)} – ${fmt(valid[0].rangeEnd)}`)
+        setRangeLabel(`${fmt(res.rangeStart)} – ${fmt(res.rangeEnd)}`)
       })
     return () => { active = false }
   }, [childIds, applicationIds, range, locale, reloadKey])

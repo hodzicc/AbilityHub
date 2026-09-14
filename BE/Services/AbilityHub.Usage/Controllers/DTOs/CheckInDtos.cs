@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AbilityHub.Usage.Controllers.DTOs;
 
 /// <summary>
@@ -8,21 +10,22 @@ namespace AbilityHub.Usage.Controllers.DTOs;
 /// </summary>
 public class WeeklyCheckInRequest
 {
+    [Required]
     public DateOnly WeekStartDate { get; set; }
 
-    public string? MoodBefore { get; set; }
-    public string? MoodAfter { get; set; }
-    public string? HelpLevel { get; set; }
-    public string? PerformanceQuality { get; set; }
+    [StringLength(50)] public string? MoodBefore { get; set; }
+    [StringLength(50)] public string? MoodAfter { get; set; }
+    [StringLength(50)] public string? HelpLevel { get; set; }
+    [StringLength(50)] public string? PerformanceQuality { get; set; }
 
     public bool SafetyIncident { get; set; }
-    public string? SafetyIncidentNotes { get; set; }
+    [StringLength(2000)] public string? SafetyIncidentNotes { get; set; }
 
-    public string? DayContext { get; set; }
-    public string? DayContextNotes { get; set; }
+    [StringLength(50)] public string? DayContext { get; set; }
+    [StringLength(2000)] public string? DayContextNotes { get; set; }
 
     public bool? UsesSkillOutsideApp { get; set; }
-    public string? GeneralNotes { get; set; }
+    [StringLength(2000)] public string? GeneralNotes { get; set; }
 }
 
 public class WeeklyCheckInResponse

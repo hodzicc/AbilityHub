@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AbilityHub.Auth.Controllers.DTOs;
 
 /// <summary>
@@ -14,11 +16,13 @@ public class PairingTokenResponse
 /// <summary>Sent by the mobile app after scanning the QR code.</summary>
 public class PairingExchangeRequest
 {
+    [Required, StringLength(512, MinimumLength = 1)]
     public required string Token { get; set; }
 
     /// <summary>
     /// Optional stable key (slug) of the app redeeming the token. When supplied, a child
     /// is let in only if that app is assigned to them. Skipped when omitted.
     /// </summary>
+    [StringLength(100)]
     public string? AppKey { get; set; }
 }

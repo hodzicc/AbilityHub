@@ -168,7 +168,7 @@ export interface RecentActivityDto {
   metrics?: ActivityMetrics
 }
 
-export interface AdminDashboardResponse {
+export interface AggregateDashboardResponse {
   generatedAt: string
   activeChildrenCount: number
   totalUsageMinutesToday: number
@@ -251,10 +251,15 @@ export async function apiGetUser(id: string): Promise<UserProfileResponse> {
   return apiFetch(`/api/users/${id}`)
 }
 
-export async function apiGetAllUsers(page = 1, pageSize = 50, search?: string, roleId?: number): Promise<PagedResult<UserProfileResponse>> {
+// The directory returns active users only by default; pass includeInactive to also get
+// deactivated accounts (the admin management view, which can reactivate them).
+export async function apiGetAllUsers(
+  page = 1, pageSize = 50, search?: string, roleId?: number, includeInactive = false,
+): Promise<PagedResult<UserProfileResponse>> {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   if (search) params.set('search', search)
   if (roleId !== undefined) params.set('roleId', String(roleId))
+  if (includeInactive) params.set('includeInactive', 'true')
   return apiFetch(`/api/users?${params.toString()}`)
 }
 
@@ -264,12 +269,12 @@ export async function apiGetAllUsers(page = 1, pageSize = 50, search?: string, r
  * genuinely need everyone (e.g. resolving names for an admin-wide activity feed),
  * as opposed to a single bounded page that silently drops rows past the cap.
  */
-export async function apiGetAllUsersUnpaged(roleId?: number): Promise<UserProfileResponse[]> {
+export async function apiGetAllUsersUnpaged(roleId?: number, includeInactive = false): Promise<UserProfileResponse[]> {
   const pageSize = 100
   const all: UserProfileResponse[] = []
   let page = 1
   while (true) {
-    const res = await apiGetAllUsers(page, pageSize, undefined, roleId)
+    const res = await apiGetAllUsers(page, pageSize, undefined, roleId, includeInactive)
     all.push(...res.items)
     if (all.length >= res.totalCount || res.items.length === 0) break
     page++
@@ -446,15 +451,62 @@ export async function apiGetDashboard(
 }
 
 /**
- * Platform-wide usage snapshot for admins, computed across all children by the
- * backend in one call — not one dashboard call per child.
+ * Aggregate usage snapshot for the signed-in user's own scope, computed by the
+ * backend in one call — not one dashboard call per child. An admin gets every child
+ * on the platform; a parent gets their own children combined. Role decides the scope
+ * server-side, so both use this single endpoint.
  */
-export async function apiGetAdminDashboard(): Promise<AdminDashboardResponse> {
-  return apiFetch('/api/usage/admin/dashboard')
+export async function apiGetAggregateDashboard(): Promise<AggregateDashboardResponse> {
+  return apiFetch('/api/usage/dashboard')
+}
+
+/**
+ * Average step-completion progress per child across the caller's scope (admin: every
+ * child; parent: their own), computed by the backend in one call. Only children with
+ * reported step activity appear — default the rest to 0. Lets a list view show a
+ * progress figure per child without fetching a full dashboard each.
+ */
+export async function apiGetChildrenProgress(): Promise<{ childId: string; avgProgressPercent: number }[]> {
+  return apiFetch('/api/usage/progress')
 }
 
 export async function apiGetLimitStatus(childId: string, appId: string): Promise<LimitStatusResponse> {
   return apiFetch(`/api/usage/children/${childId}/apps/${appId}/limit-status`)
+}
+
+// ---- Combined statistics over several children at once (the "All children" view) ----
+// The backend sums/merges across the given children in one query — same response shapes
+// as the per-child routes — instead of the client fetching one per child and combining.
+// Children are always narrowed server-side to those the caller may see.
+
+function combinedQuery(childIds: string[], applicationIds?: string[], extra?: Record<string, string>): string {
+  const params = new URLSearchParams({ childIds: childIds.join(','), ...extra })
+  if (applicationIds) params.set('applicationIds', applicationIds.join(','))
+  return params.toString()
+}
+
+export async function apiGetCombinedDashboard(
+  childIds: string[], applicationIds?: string[], range?: { from: string; to: string },
+): Promise<DashboardResponse> {
+  return apiFetch(`/api/usage/combined/dashboard?${combinedQuery(childIds, applicationIds, range)}`)
+}
+
+export async function apiGetCombinedDailyMetrics(
+  childIds: string[], applicationIds?: string[], range?: { from: string; to: string },
+): Promise<DailyMetricsResponse> {
+  return apiFetch(`/api/usage/combined/daily-metrics?${combinedQuery(childIds, applicationIds, range)}`)
+}
+
+export async function apiGetCombinedCalendarMonth(
+  childIds: string[], year: number, month: number, applicationIds?: string[],
+): Promise<CalendarMonthResponse> {
+  return apiFetch(`/api/usage/combined/calendar?${combinedQuery(childIds, applicationIds, { year: String(year), month: String(month) })}`)
+}
+
+export async function apiGetCombinedActivitiesOnDate(
+  childIds: string[], date: string, applicationIds?: string[],
+): Promise<RecentActivityDto[]> {
+  return apiFetch(`/api/usage/combined/activities-on-date?${combinedQuery(childIds, applicationIds, { date })}`)
 }
 
 export async function apiGetDailyMetrics(
@@ -513,6 +565,15 @@ export async function apiSubmitWeeklyCheckIn(
 
 export async function apiGetWeeklyCheckIns(childId: string): Promise<WeeklyCheckIn[]> {
   return apiFetch(`/api/checkins/children/${childId}`)
+}
+
+/**
+ * Of the signed-in guardian's own children, the ids that still have no check-in for
+ * the given week (Monday, ISO date). Computed by the backend in one call so the
+ * dashboard reminder doesn't fetch every child's check-ins and diff them client-side.
+ */
+export async function apiGetPendingCheckIns(weekStart: string): Promise<string[]> {
+  return apiFetch(`/api/checkins/pending?weekStart=${weekStart}`)
 }
 
 export async function apiDeleteWeeklyCheckIn(childId: string, checkInId: string): Promise<void> {

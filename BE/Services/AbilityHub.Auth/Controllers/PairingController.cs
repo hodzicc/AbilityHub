@@ -19,12 +19,12 @@ namespace AbilityHub.Auth.Controllers;
 public class PairingController : ControllerBase
 {
     private readonly IAuthService _authService;
-    private readonly IUsersServiceClient _usersClient;
+    private readonly IChildAccessAuthorizer _access;
 
-    public PairingController(IAuthService authService, IUsersServiceClient usersClient)
+    public PairingController(IAuthService authService, IChildAccessAuthorizer access)
     {
         _authService = authService;
-        _usersClient = usersClient;
+        _access = access;
     }
 
     // POST: api/auth/children/{childId}/pairing-token — guardian/admin issues a code.
@@ -32,7 +32,7 @@ public class PairingController : ControllerBase
     [Authorize]
     public async Task<IActionResult> CreatePairingToken(Guid childId)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
 
         var token = await _authService.CreatePairingTokenAsync(childId);
         return token is null
@@ -48,12 +48,5 @@ public class PairingController : ControllerBase
     {
         var result = await _authService.ExchangePairingTokenAsync(request);
         return result.Success ? Ok(result) : Unauthorized(result);
-    }
-
-    // Same authorization pattern used across the platform: admin, or the child's guardian.
-    private async Task<bool> CanManageChildAsync(Guid childId)
-    {
-        if (User.IsInRole(Roles.Admin)) return true;
-        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }

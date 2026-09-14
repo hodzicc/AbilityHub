@@ -19,6 +19,10 @@ public static class ServiceClientsExtensions
                     ?? throw new InvalidOperationException("Services:UsersBaseUrl is not configured.")))
             .AddHttpMessageHandler<AuthTokenForwardingHandler>();
 
+        // The guardian/admin/self access checks that every child-scoped endpoint shares
+        // are backed by the Users client, so they come registered alongside it.
+        services.AddScoped<IChildAccessAuthorizer, ChildAccessAuthorizer>();
+
         return services;
     }
 

@@ -51,6 +51,21 @@ public class UsageMappingProfile : Profile
                     || src.StepsCompleted is not null || src.StepsTotal is not null
                     || src.DurationSeconds is not null || src.HintsShown is not null || src.ErrorsCount is not null;
                 if (!hasAny) dest.Metrics = null;
+
+                // An activity that finished all its steps (or was explicitly completed) is
+                // no longer "in progress", even if the app's final completion report never
+                // arrived — otherwise a finished task shows forever with a progress spinner.
+                // Mirrors the "completed" rule the daily-metrics chart already applies.
+                var completed = src.CompletedViaAction == true
+                    || (src.StepsTotal is > 0 && src.StepsCompleted >= src.StepsTotal);
+                if (completed)
+                {
+                    dest.InProgress = false;
+                    // Same reason: a finished task should read as completed rather than
+                    // showing "completed via action: ✗" just because the final report,
+                    // which carries that flag, never landed.
+                    if (dest.Metrics is not null) dest.Metrics.CompletedViaAction = true;
+                }
             });
 
         // Per-app aggregate → dashboard row (seconds → minutes, rounded up so any

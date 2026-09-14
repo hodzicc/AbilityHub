@@ -32,6 +32,9 @@ public class UsersServiceClient(HttpClient httpClient, ILogger<UsersServiceClien
     }
 
     public async Task<bool> IsGuardianOfChildAsync(Guid guardianId, Guid childId)
+        => (await GetChildIdsForGuardianAsync(guardianId)).Contains(childId);
+
+    public async Task<IReadOnlyList<Guid>> GetChildIdsForGuardianAsync(Guid guardianId)
     {
         try
         {
@@ -40,17 +43,17 @@ public class UsersServiceClient(HttpClient httpClient, ILogger<UsersServiceClien
             var response = await _httpClient.GetAsync($"/api/users/{guardianId}/children");
 
             if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
-                return false;
+                return [];
 
             response.EnsureSuccessStatusCode();
 
             var children = await response.Content.ReadFromJsonAsync<List<UserRef>>() ?? [];
-            return children.Any(c => c.Id == childId);
+            return children.Select(c => c.Id).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Guardian check against Users service failed for {GuardianId}/{ChildId}.", guardianId, childId);
-            return false;
+            _logger.LogWarning(ex, "Guardian children lookup against Users service failed for {GuardianId}.", guardianId);
+            return [];
         }
     }
 }

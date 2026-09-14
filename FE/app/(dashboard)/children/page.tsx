@@ -16,7 +16,8 @@ import {
   apiCreateUser,
   apiUpdateProfile,
   apiDeactivateUser,
-  apiGetDashboard,
+  apiActivateUser,
+  apiGetChildrenProgress,
   type UserProfileResponse,
 } from '@/lib/api'
 import { ROLE_ID, FALLBACK_DATE_OF_BIRTH } from '@/lib/constants'
@@ -33,6 +34,7 @@ function profileToChild(p: UserProfileResponse, guardianId: string, assignedApps
     parentId: guardianId,
     assignedApps,
     createdAt: new Date(p.createdAt),
+    isActive: p.isActive,
   }
 }
 
@@ -57,22 +59,27 @@ export default function ChildrenPage() {
       let profiles: UserProfileResponse[] = []
       for (let attempt = 0; attempt < 6; attempt++) {
         if (user.role === 'admin') {
-          profiles = await apiGetAllUsersUnpaged(ROLE_ID.CHILD)
+          // Admins manage lifecycle here, so include deactivated children (each gets a
+          // reactivate action). Parents below get active children only.
+          profiles = await apiGetAllUsersUnpaged(ROLE_ID.CHILD, true)
         } else {
           profiles = await apiGetChildren(user.id)
         }
         if (!expectId || profiles.some(p => p.id === expectId)) break
         await new Promise(r => setTimeout(r, 500)) // wait for the create event to land
       }
+      // Progress for every child in the caller's scope comes from one backend call,
+      // rather than a full dashboard fetch per child. Children with no step activity
+      // are absent from the map and default to 0 below.
+      const progressList = await apiGetChildrenProgress().catch(() => [])
+      const progressByChild = new Map(progressList.map(p => [p.childId, Math.round(p.avgProgressPercent)]))
+
       const enriched = await Promise.all(
         profiles.map(async p => {
-          const [apps, dashboard] = await Promise.all([
-            apiGetChildApps(p.id).catch(() => []),
-            apiGetDashboard(p.id).catch(() => null),
-          ])
+          const apps = await apiGetChildApps(p.id).catch(() => [])
           return {
             child: profileToChild(p, user.id, apps.map(a => a.applicationId)),
-            progress: Math.round(dashboard?.avgProgressPercent ?? 0),
+            progress: progressByChild.get(p.id) ?? 0,
           }
         })
       )
@@ -145,14 +152,29 @@ export default function ChildrenPage() {
 
   const handleDeactivateChild = async () => {
     if (!deactivateChild) return
+    const removedId = deactivateChild.id
     try {
-      await apiDeactivateUser(deactivateChild.id)
+      await apiDeactivateUser(removedId)
       toast.success(t('children.deactivatedToast'))
       setDeactivateChild(null)
-      await loadChildren()
+      // Remove it from the list right away. The account is deactivated on the server
+      // asynchronously, so a refetch here could still return it (it would reappear);
+      // dropping it locally keeps the parent's view correct immediately.
+      setChildren(prev => prev.filter(c => c.id !== removedId))
     } catch {
       toast.error(t('children.deactivateError'))
       setDeactivateChild(null)
+    }
+  }
+
+  // Admin only: bring a deactivated child's account back.
+  const handleReactivateChild = async (child: Child) => {
+    try {
+      await apiActivateUser(child.id)
+      toast.success(t('admin.activatedToast', { name: child.name }))
+      setChildren(prev => prev.map(c => (c.id === child.id ? { ...c, isActive: true } : c)))
+    } catch {
+      toast.error(t('admin.activateError'))
     }
   }
 
@@ -208,7 +230,8 @@ export default function ChildrenPage() {
                 setEditChild(child)
                 setIsAddDialogOpen(true)
               }}
-              onDelete={user?.role === 'admin' ? undefined : () => setDeactivateChild(child)}
+              onDelete={user?.role === 'admin' || child.isActive === false ? undefined : () => setDeactivateChild(child)}
+              onReactivate={user?.role === 'admin' && child.isActive === false ? () => handleReactivateChild(child) : undefined}
             />
           ))}
         </div>
