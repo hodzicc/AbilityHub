@@ -9,7 +9,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { BarChart3 } from 'lucide-react'
-import { apiGetDashboard } from '@/lib/api'
+import { apiGetCombinedDashboard } from '@/lib/api'
 import { DEFAULT_APP_COLOR } from '@/lib/constants'
 import { WeekNav, weekRange } from './week-nav'
 
@@ -52,26 +52,22 @@ export function UsageByAppChart({ childIds, applicationIds, appNames, reloadKey 
     let active = true
     const loc = locale === 'bs' ? 'bs-BA' : 'en-US'
     const appIds = applicationIds ?? undefined
-    Promise.all(childIds.map(id => apiGetDashboard(id, appIds, range).catch(() => null)))
-      .then(results => {
+    // One backend call returns per-app minutes already summed across the children.
+    apiGetCombinedDashboard(childIds, appIds, range).catch(() => null)
+      .then(dash => {
         if (!active) return
-        const valid = results.filter(Boolean) as NonNullable<typeof results[number]>[]
-        // Sum minutes per app id across the displayed children.
-        const totals = new Map<string, number>()
-        valid.forEach(d => d.perApp.forEach(a => totals.set(a.applicationId, (totals.get(a.applicationId) ?? 0) + a.totalMinutes)))
-        const next = Array.from(totals.entries())
-          .map(([id, usage]) => ({
-            name: (appNames[id]?.name ?? t('common.unknown')).slice(0, 12),
-            usage,
-            color: appNames[id]?.color ?? DEFAULT_APP_COLOR,
+        if (!dash) { setBars([]); return }
+        const next = dash.perApp
+          .map(a => ({
+            name: (appNames[a.applicationId]?.name ?? t('common.unknown')).slice(0, 12),
+            usage: a.totalMinutes,
+            color: appNames[a.applicationId]?.color ?? DEFAULT_APP_COLOR,
           }))
           .filter(b => b.usage > 0)
           .sort((a, b) => b.usage - a.usage)
         setBars(next)
-        if (valid[0]) {
-          const fmt = (iso: string) => new Date(iso).toLocaleDateString(loc, { day: 'numeric', month: 'short' })
-          setRangeLabel(`${fmt(valid[0].rangeStart)} – ${fmt(valid[0].rangeEnd)}`)
-        }
+        const fmt = (iso: string) => new Date(iso).toLocaleDateString(loc, { day: 'numeric', month: 'short' })
+        setRangeLabel(`${fmt(dash.rangeStart)} – ${fmt(dash.rangeEnd)}`)
       })
     return () => { active = false }
   }, [childIds, applicationIds, appNames, range, locale, t, reloadKey])

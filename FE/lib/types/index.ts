@@ -29,6 +29,7 @@ export interface Child {
   parentId: string
   assignedApps: string[]  // array of app IDs (populated separately)
   createdAt: Date
+  isActive?: boolean      // false = deactivated ("deleted"); shown to admins for reactivation
 }
 
 // Application Types

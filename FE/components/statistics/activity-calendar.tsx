@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { ACTIVITY_ICONS, resolveActivityAction, describeActivity } from '@/lib/activity'
-import { apiGetCalendarMonth, apiGetActivitiesOnDate, type RecentActivityDto } from '@/lib/api'
+import { apiGetCombinedCalendarMonth, apiGetCombinedActivitiesOnDate, type RecentActivityDto } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface ActivityCalendarProps {
@@ -58,12 +58,11 @@ export function ActivityCalendar({ childIds, applicationIds, appNames, reloadKey
     let active = true
     setIsLoadingMonth(true)
     const appIds = applicationIds ?? undefined
-    Promise.all(childIds.map(id => apiGetCalendarMonth(id, year, month, appIds).catch(() => null)))
-      .then(results => {
+    // One backend call returns the active days merged across the children.
+    apiGetCombinedCalendarMonth(childIds, year, month, appIds).catch(() => null)
+      .then(res => {
         if (!active) return
-        const days = new Set<string>()
-        results.forEach(r => r?.activeDays.forEach(d => days.add(d.slice(0, 10))))
-        setActiveDays(days)
+        setActiveDays(new Set((res?.activeDays ?? []).map(d => d.slice(0, 10))))
       })
       .finally(() => { if (active) setIsLoadingMonth(false) })
     return () => { active = false }
@@ -75,9 +74,10 @@ export function ActivityCalendar({ childIds, applicationIds, appNames, reloadKey
     if (childIds.length === 0) { setDayActivities([]); return }
     setIsLoadingDay(true)
     const appIds = applicationIds ?? undefined
-    Promise.all(childIds.map(id => apiGetActivitiesOnDate(id, key, appIds).catch(() => [] as RecentActivityDto[])))
-      .then(results => {
-        const all = results.flat().sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    // One backend call returns that day's activities across the children, already merged.
+    apiGetCombinedActivitiesOnDate(childIds, key, appIds).catch(() => [] as RecentActivityDto[])
+      .then(activities => {
+        const all = [...activities].sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
         setDayActivities(all)
       })
       .finally(() => setIsLoadingDay(false))

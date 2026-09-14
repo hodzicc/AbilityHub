@@ -1,7 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AbilityHub.Settings.Controllers.DTOs;
 
 public class SetPreferencesRequest
 {
+    // Keys/values are further checked against UIPreferenceCatalog in the controller.
+    [Required]
     public Dictionary<string, string> Preferences { get; set; } = new();
 }
 
@@ -12,7 +16,10 @@ public class PreferencesResponse
 
 public class RestrictionRequest
 {
+    // A daily allowance, in minutes: 0..1440 (a full day). Null = no time limit.
+    [Range(0, 1440)]
     public int? DailyTimeLimitMinutes { get; set; }
+
     public bool IsBlocked { get; set; }
 }
 

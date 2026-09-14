@@ -77,24 +77,24 @@ public class UsageService(
     }
 
     public async Task<DashboardResponse> GetDashboardAsync(
-        Guid childId, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
+        IReadOnlyCollection<Guid> childIds, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
     {
         var today = DateTime.UtcNow.Date;
         var (windowStart, windowEnd, untilExclusive) = ResolveWindow(fromUtc, toUtc, today);
 
-        var perApp = await _repository.GetPerAppAggregatesAsync(childId, windowStart, untilExclusive, applicationIds);
-        var recent = await _repository.GetRecentActivitiesAsync(childId, RecentActivityLimit, applicationIds);
-        var activityCount = await _repository.GetActivityCountAsync(childId, applicationIds);
-        var stepCompletions = await _repository.GetStepCompletionsAsync(childId, applicationIds);
+        var perApp = await _repository.GetPerAppAggregatesAsync(childIds, windowStart, untilExclusive, applicationIds);
+        var recent = await _repository.GetRecentActivitiesAsync(childIds, RecentActivityLimit, applicationIds);
+        var activityCount = await _repository.GetActivityCountAsync(childIds, applicationIds);
+        var stepCompletions = await _repository.GetStepCompletionsAsync(childIds, applicationIds);
         var activeDays = await _repository.GetActiveDaysSinceAsync(
-            childId, today.AddDays(-(ConsistencyWindowDays - 1)), applicationIds);
+            childIds, today.AddDays(-(ConsistencyWindowDays - 1)), applicationIds);
         var heatmapDays = await _repository.GetActiveDaysSinceAsync(
-            childId, today.AddDays(-(ActivityHeatmapWindowDays - 1)), applicationIds);
-        var dailyUsage = await _repository.GetDailyUsageSinceAsync(childId, windowStart, untilExclusive, applicationIds);
+            childIds, today.AddDays(-(ActivityHeatmapWindowDays - 1)), applicationIds);
+        var dailyUsage = await _repository.GetDailyUsageSinceAsync(childIds, windowStart, untilExclusive, applicationIds);
 
         return new DashboardResponse
         {
-            ChildId = childId,
+            ChildId = SingleChildOrEmpty(childIds),
             GeneratedAt = DateTime.UtcNow,
             RangeStart = windowStart,
             RangeEnd = windowEnd,
@@ -112,10 +112,10 @@ public class UsageService(
     }
 
     public async Task<DailyMetricsResponse> GetDailyMetricsAsync(
-        Guid childId, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
+        IReadOnlyCollection<Guid> childIds, IReadOnlyCollection<Guid>? applicationIds = null, DateTime? fromUtc = null, DateTime? toUtc = null)
     {
         var (windowStart, windowEnd, untilExclusive) = ResolveWindow(fromUtc, toUtc, DateTime.UtcNow.Date);
-        var raw = await _repository.GetDailyActivityMetricsAsync(childId, windowStart, untilExclusive, applicationIds);
+        var raw = await _repository.GetDailyActivityMetricsAsync(childIds, windowStart, untilExclusive, applicationIds);
         var byDate = raw.ToDictionary(d => d.Date.Date);
 
         var days = new List<DailyMetricsDayDto>();
@@ -134,7 +134,7 @@ public class UsageService(
 
         return new DailyMetricsResponse
         {
-            ChildId = childId,
+            ChildId = SingleChildOrEmpty(childIds),
             RangeStart = windowStart,
             RangeEnd = windowEnd,
             Days = days,
@@ -186,21 +186,21 @@ public class UsageService(
         return Math.Round(Math.Min(activeDays.Count, ConsistencyWindowDays) / (double)ConsistencyWindowDays, 2);
     }
 
-    private const int AdminRecentActivityLimit = 20;
+    private const int AggregateRecentActivityLimit = 20;
 
-    public async Task<AdminDashboardResponse> GetAdminDashboardAsync()
+    public async Task<AggregateDashboardResponse> GetAggregateDashboardAsync(IReadOnlyCollection<Guid>? childIds)
     {
         var today = DateTime.UtcNow.Date;
         var windowStart = today.AddDays(-(DefaultWindowDays - 1));
 
-        var dailyUsage = await _repository.GetDailyUsageAllSinceAsync(windowStart);
-        var stepCompletions = await _repository.GetStepCompletionsAllAsync();
-        var recent = await _repository.GetRecentActivitiesAllAsync(AdminRecentActivityLimit);
-        var activeChildren = await _repository.GetActiveChildrenCountSinceAsync(windowStart);
+        var dailyUsage = await _repository.GetDailyUsageSinceAsync(childIds, windowStart);
+        var stepCompletions = await _repository.GetStepCompletionsAsync(childIds);
+        var recent = await _repository.GetRecentActivitiesAsync(childIds, AggregateRecentActivityLimit);
+        var activeChildren = await _repository.GetActiveChildrenCountSinceAsync(windowStart, childIds);
 
         var byDate = dailyUsage.ToDictionary(d => d.Date.Date, d => d.TotalSeconds);
 
-        return new AdminDashboardResponse
+        return new AggregateDashboardResponse
         {
             GeneratedAt = DateTime.UtcNow,
             ActiveChildrenCount = activeChildren,
@@ -211,17 +211,33 @@ public class UsageService(
         };
     }
 
+    public async Task<IReadOnlyList<ChildProgressDto>> GetChildrenProgressAsync(IReadOnlyCollection<Guid>? childIds)
+    {
+        var completions = await _repository.GetStepCompletionsByChildAsync(childIds);
+
+        return completions
+            .GroupBy(c => c.ChildId)
+            .Select(g => new ChildProgressDto
+            {
+                ChildId = g.Key,
+                // Reuse the same per-activity ratio averaging the dashboard uses, per child.
+                AvgProgressPercent = ComputeAvgProgressPercent(
+                    g.Select(c => new StepCompletion(c.Completed, c.Total)).ToList()) ?? 0,
+            })
+            .ToList();
+    }
+
     public async Task<CalendarMonthResponse> GetCalendarMonthAsync(
-        Guid childId, int year, int month, IReadOnlyCollection<Guid>? applicationIds = null)
+        IReadOnlyCollection<Guid> childIds, int year, int month, IReadOnlyCollection<Guid>? applicationIds = null)
     {
         var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1);
 
-        var activeDays = await _repository.GetActiveDaysSinceAsync(childId, monthStart, applicationIds, monthEnd);
+        var activeDays = await _repository.GetActiveDaysSinceAsync(childIds, monthStart, applicationIds, monthEnd);
 
         return new CalendarMonthResponse
         {
-            ChildId = childId,
+            ChildId = SingleChildOrEmpty(childIds),
             Year = year,
             Month = month,
             ActiveDays = activeDays.ToList(),
@@ -229,11 +245,16 @@ public class UsageService(
     }
 
     public async Task<List<RecentActivityDto>> GetActivitiesOnDateAsync(
-        Guid childId, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null)
+        IReadOnlyCollection<Guid> childIds, DateTime date, IReadOnlyCollection<Guid>? applicationIds = null)
     {
-        var activities = await _repository.GetActivitiesOnDateAsync(childId, date, applicationIds);
+        var activities = await _repository.GetActivitiesOnDateAsync(childIds, date, applicationIds);
         return _mapper.Map<List<RecentActivityDto>>(activities);
     }
+
+    // A response's ChildId identifies the single child it's about; for a combined view
+    // over several children there's no single owner, so it's left empty.
+    private static Guid SingleChildOrEmpty(IReadOnlyCollection<Guid> childIds)
+        => childIds.Count == 1 ? childIds.First() : Guid.Empty;
 
     public async Task<LimitStatusResponse> GetLimitStatusAsync(Guid childId, Guid applicationId)
     {

@@ -14,36 +14,30 @@ namespace AbilityHub.Settings.Controllers;
 public class RestrictionsController : ControllerBase
 {
     private readonly ISettingsService _settings;
-    private readonly IUsersServiceClient _usersClient;
+    private readonly IChildAccessAuthorizer _access;
     private readonly ISettingsNotifier _notifier;
 
-    public RestrictionsController(ISettingsService settings, IUsersServiceClient usersClient, ISettingsNotifier notifier)
+    public RestrictionsController(ISettingsService settings, IChildAccessAuthorizer access, ISettingsNotifier notifier)
     {
         _settings = settings;
-        _usersClient = usersClient;
+        _access = access;
         _notifier = notifier;
     }
 
     [HttpGet]
     public async Task<IActionResult> Get(Guid childId, Guid appId)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
         return Ok(await _settings.GetRestrictionAsync(childId, appId));
     }
 
     [HttpPut]
     public async Task<IActionResult> Set(Guid childId, Guid appId, [FromBody] RestrictionRequest request)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
         await _settings.SetRestrictionAsync(childId, appId, request, User.GetUserId());
         // Push to the child's connected app so the new limit/block applies instantly.
         await _notifier.NotifyChildAsync(childId, "restriction", appId);
         return NoContent();
-    }
-
-    private async Task<bool> CanManageChildAsync(Guid childId)
-    {
-        if (User.IsInRole(Roles.Admin)) return true;
-        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }

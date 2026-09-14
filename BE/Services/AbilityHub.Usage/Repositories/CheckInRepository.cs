@@ -21,6 +21,14 @@ namespace AbilityHub.Usage.Repositories
                 .AsNoTracking()
                 .ToListAsync();
 
+        public async Task<IReadOnlyList<Guid>> GetChildIdsWithCheckInForWeekAsync(IReadOnlyCollection<Guid> childIds, DateOnly weekStartDate)
+            => await _context.WeeklyCheckIns
+                .AsNoTracking()
+                .Where(c => childIds.Contains(c.ChildId) && c.WeekStartDate == weekStartDate)
+                .Select(c => c.ChildId)
+                .Distinct()
+                .ToListAsync();
+
         public async Task AddAsync(WeeklyCheckIn checkIn)
         {
             await _context.WeeklyCheckIns.AddAsync(checkIn);

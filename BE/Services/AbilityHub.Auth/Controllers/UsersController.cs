@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AbilityHub.Auth.Services.Interfaces;
 using AbilityHub.Auth.Controllers.DTOs;
+using AbilityHub.ServiceClients;
 using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Users.Controllers;
@@ -17,10 +18,12 @@ namespace AbilityHub.Users.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _service;
+    private readonly IChildAccessAuthorizer _access;
 
-    public UsersController(IUserService service)
+    public UsersController(IUserService service, IChildAccessAuthorizer access)
     {
         _service = service;
+        _access = access;
     }
 
     // POST: api/auth/users — Admins create any user; Parents create their own children.
@@ -51,15 +54,20 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(Create), new { id = result.UserId }, result);
     }
 
-    // DELETE: api/auth/users/{id} — deactivate an account (admin only). An admin can't
-    // deactivate their own account — that could lock the platform out of admin access
-    // with no one left to reactivate it.
+    // DELETE: api/auth/users/{id} — deactivate an account. An admin may deactivate any
+    // account; a parent may deactivate a child they are the guardian of (deleting their
+    // own child's account). Nobody may deactivate themselves — that could lock an admin
+    // out of the platform with no one left to reactivate it.
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Parent}")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
         if (id == User.GetUserId())
             return BadRequest(new ApiError("cannot_deactivate_self", "You cannot deactivate your own account."));
+
+        // Admin passes unconditionally; a parent only for their own child.
+        if (!await _access.CanManageChildAsync(User, id))
+            return Forbid();
 
         var ok = await _service.DeactivateUserAsync(id);
         return ok ? NoContent() : NotFound();

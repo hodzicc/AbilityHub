@@ -17,12 +17,12 @@ namespace AbilityHub.AppRegistry.Controllers;
 public class ChildApplicationsController : ControllerBase
 {
     private readonly IChildAppService _childApps;
-    private readonly IUsersServiceClient _usersClient;
+    private readonly IChildAccessAuthorizer _access;
 
-    public ChildApplicationsController(IChildAppService childApps, IUsersServiceClient usersClient)
+    public ChildApplicationsController(IChildAppService childApps, IChildAccessAuthorizer access)
     {
         _childApps = childApps;
-        _usersClient = usersClient;
+        _access = access;
     }
 
     // GET: api/apps/children/{childId} — apps assigned to a child.
@@ -31,7 +31,7 @@ public class ChildApplicationsController : ControllerBase
     {
         // A child may read their OWN assignments — the app uses this to confirm it's
         // assigned before letting the child in. Otherwise only an admin or guardian.
-        if (childId != User.GetUserId() && !await CanManageChildAsync(childId))
+        if (!await _access.CanViewChildAsync(User, childId))
             return Forbid();
 
         return Ok(await _childApps.GetForChildAsync(childId));
@@ -41,7 +41,7 @@ public class ChildApplicationsController : ControllerBase
     [HttpPost("{childId:guid}")]
     public async Task<IActionResult> Assign(Guid childId, [FromBody] AssignAppRequest request)
     {
-        if (!await CanManageChildAsync(childId))
+        if (!await _access.CanManageChildAsync(User, childId))
             return Forbid();
 
         var outcome = await _childApps.AssignAsync(childId, request.ApplicationId, User.GetUserId());
@@ -61,20 +61,10 @@ public class ChildApplicationsController : ControllerBase
     [HttpDelete("{childId:guid}/{applicationId:guid}")]
     public async Task<IActionResult> Remove(Guid childId, Guid applicationId)
     {
-        if (!await CanManageChildAsync(childId))
+        if (!await _access.CanManageChildAsync(User, childId))
             return Forbid();
 
         var removed = await _childApps.RemoveAsync(childId, applicationId);
         return removed ? NoContent() : NotFound();
-    }
-
-    /// <summary>Admins manage any child; parents only children they are a guardian of.</summary>
-    private async Task<bool> CanManageChildAsync(Guid childId)
-    {
-        if (User.IsInRole(Roles.Admin))
-            return true;
-
-        return User.IsInRole(Roles.Parent)
-            && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }

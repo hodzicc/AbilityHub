@@ -22,20 +22,22 @@ public class UsersController : ControllerBase
         _mapper = mapper;
     }
 
-    // GET: api/users?page=1&pageSize=20&search=...&roleId=... — full directory (admin only).
-    // Search matches first name, last name, or email and is applied server-side, so
-    // it works correctly together with pagination instead of only filtering whichever
-    // single page the client happened to have loaded. roleId narrows to one role (e.g.
-    // picking a guardian from the parent list) without the caller paging through everyone.
+    // GET: api/users?page=1&pageSize=20&search=...&roleId=...&includeInactive=false — full
+    // directory (admin only). Search matches first name, last name, or email and is applied
+    // server-side, so it works correctly together with pagination instead of only filtering
+    // whichever single page the client happened to have loaded. roleId narrows to one role
+    // (e.g. picking a guardian from the parent list). Deactivated accounts are excluded
+    // unless includeInactive=true (the admin management view, which reactivates them).
     [HttpGet]
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null, [FromQuery] int? roleId = null)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] int? roleId = null, [FromQuery] bool includeInactive = false)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var (items, total) = await _userRepository.GetPagedAsync(page, pageSize, search, roleId);
+        var (items, total) = await _userRepository.GetPagedAsync(page, pageSize, search, roleId, includeInactive);
 
         return Ok(new PagedResult<UserProfileResponse>(
             _mapper.Map<List<UserProfileResponse>>(items), page, pageSize, total));

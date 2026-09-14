@@ -22,6 +22,7 @@ interface ChildCardProps {
   progress?: number
   onEdit?: () => void
   onDelete?: () => void
+  onReactivate?: () => void
 }
 
 const AVATAR_GRADIENTS = [
@@ -39,13 +40,14 @@ function avatarGradient(name: string) {
   return AVATAR_GRADIENTS[idx]
 }
 
-export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardProps) {
+export function ChildCard({ child, progress = 0, onEdit, onDelete, onReactivate }: ChildCardProps) {
   const { t } = useTranslation()
   const age = calculateAge(child.dateOfBirth)
   const gradient = avatarGradient(child.name)
+  const isInactive = child.isActive === false
 
   return (
-    <Card className="group overflow-hidden border-0 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+    <Card className={`group overflow-hidden border-0 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5${isInactive ? ' opacity-70' : ''}`}>
       {/* Colored top strip */}
       <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
       <CardHeader className="pb-3 pt-4">
@@ -60,19 +62,26 @@ export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardPr
               <h3 className="font-semibold group-hover:text-primary transition-colors">
                 {child.name}
               </h3>
-              <Badge
-                variant="secondary"
-                className={
-                  child.gender === 'male'
-                    ? 'mt-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-0'
-                    : 'mt-1 bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-0'
-                }
-              >
-                {t(`children.${child.gender}`)}
-              </Badge>
+              <div className="mt-1 flex items-center gap-1.5">
+                <Badge
+                  variant="secondary"
+                  className={
+                    child.gender === 'male'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-0'
+                      : 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300 border-0'
+                  }
+                >
+                  {t(`children.${child.gender}`)}
+                </Badge>
+                {isInactive && (
+                  <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-0">
+                    {t('common.inactive')}
+                  </Badge>
+                )}
+              </div>
             </div>
           </Link>
-          {(onEdit || onDelete) && (
+          {(onEdit || onDelete || onReactivate) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" aria-label={t('common.moreActions')}>
@@ -86,6 +95,11 @@ export function ChildCard({ child, progress = 0, onEdit, onDelete }: ChildCardPr
                 {onDelete && (
                   <DropdownMenuItem onClick={onDelete} className="text-destructive">
                     {t('children.deactivateChild')}
+                  </DropdownMenuItem>
+                )}
+                {onReactivate && (
+                  <DropdownMenuItem onClick={onReactivate} className="text-emerald-600 dark:text-emerald-400">
+                    {t('admin.activateUser')}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

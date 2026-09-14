@@ -42,6 +42,14 @@ public class CheckInService(ICheckInRepository repository, IMapper mapper) : ICh
         return _mapper.Map<List<WeeklyCheckInResponse>>(items);
     }
 
+    public async Task<IReadOnlyList<Guid>> GetChildrenMissingCheckInAsync(IReadOnlyCollection<Guid> childIds, DateOnly weekStart)
+    {
+        if (childIds.Count == 0) return [];
+
+        var present = (await _repository.GetChildIdsWithCheckInForWeekAsync(childIds, weekStart)).ToHashSet();
+        return childIds.Where(id => !present.Contains(id)).ToList();
+    }
+
     public async Task<bool> DeleteAsync(Guid childId, Guid checkInId)
     {
         var existing = await _repository.GetByIdAsync(checkInId);

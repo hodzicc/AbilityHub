@@ -11,7 +11,9 @@ namespace AbilityHub.Users.Repositories
         /// <summary>Optionally filtered by role and/or a case-insensitive substring match
         /// on first/last name or email — the directory search is done server-side rather
         /// than the caller loading a page and filtering it client-side.</summary>
-        Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null, int? roleId = null);
+        /// <summary>Paged user directory. Returns active users only unless
+        /// <paramref name="includeInactive"/> is set (the admin management view).</summary>
+        Task<(IReadOnlyList<User> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, string? search = null, int? roleId = null, bool includeInactive = false);
 
         /// <summary>User counts by role across the whole directory — computed once on
         /// the backend so the admin dashboard's summary cards stay correct regardless
@@ -27,6 +29,9 @@ namespace AbilityHub.Users.Repositories
         Task UpdateAsync(User user);
 
         // Guardian ↔ child relationships
+        /// <summary>A guardian's active children. Deactivated (deleted) children are
+        /// excluded — they no longer appear in the parent's list, and since this also
+        /// backs the guardian-access check, a deleted child stops being manageable.</summary>
         Task<IReadOnlyList<User>> GetChildrenAsync(Guid guardianId);
         Task<bool> IsGuardianOfAsync(Guid guardianId, Guid childId);
         Task<bool> LinkExistsAsync(Guid guardianId, Guid childId);

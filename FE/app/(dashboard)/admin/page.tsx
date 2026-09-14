@@ -130,7 +130,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (user?.role !== 'admin') return
     setIsLoading(true)
-    apiGetAllUsers(page, PAGE_SIZE, search || undefined)
+    // includeInactive: this management table shows an Active/Inactive badge and can
+    // reactivate deactivated accounts, so it needs to see them (the rest of the app
+    // gets active users only by default).
+    apiGetAllUsers(page, PAGE_SIZE, search || undefined, undefined, true)
       .then(res => {
         setUsers(res.items)
         setTotalCount(res.totalCount)

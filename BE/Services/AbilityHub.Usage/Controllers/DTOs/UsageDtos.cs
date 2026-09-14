@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AbilityHub.Usage.Controllers.DTOs;
 
 // ---- Ingestion (the standardized "abilityhub.usage.v1" report; see docs/usage-format.md) ----
@@ -33,10 +35,13 @@ public class ActivityDto
     /// </summary>
     public Guid? Id { get; set; }
 
+    [StringLength(100)]
     public string ActivityType { get; set; } = string.Empty;
+    [StringLength(200)]
     public string Name { get; set; } = string.Empty;
     public double? Score { get; set; }
     public DateTime OccurredAt { get; set; }
+    [StringLength(1000)]
     public string? Detail { get; set; }
 
     /// <summary>True for a live progress update (child still working); false/omitted when finished.</summary>
@@ -195,16 +200,16 @@ public class AppUsageDto
 }
 
 /// <summary>
-/// Platform-wide usage snapshot for admins: every figure here is computed across
-/// ALL children in one backend pass, rather than the admin fetching each child's
-/// individual dashboard (which doesn't scale and isn't a meaningful view for someone
-/// who isn't that child's guardian).
+/// Usage snapshot aggregated over a set of children in one backend pass, rather than
+/// the client fetching each child's individual dashboard and summing them. The same
+/// shape serves an admin (every child on the platform) and a parent (their own
+/// children) — the scope is decided by the caller's role, not by a different endpoint.
 /// </summary>
-public class AdminDashboardResponse
+public class AggregateDashboardResponse
 {
     public DateTime GeneratedAt { get; set; }
 
-    /// <summary>Distinct children with any recorded activity in the last 7 days.</summary>
+    /// <summary>Distinct children (within the caller's scope) with any recorded activity in the last 7 days.</summary>
     public int ActiveChildrenCount { get; set; }
 
     public long TotalUsageMinutesToday { get; set; }
@@ -218,6 +223,14 @@ public class AdminDashboardResponse
     public List<DailyUsageDto> DailyUsage { get; set; } = new();
 
     public List<RecentActivityDto> RecentActivities { get; set; } = new();
+}
+
+/// <summary>A child's average step-completion progress (0–100). Only children with at
+/// least one step-reporting activity are returned; the client defaults the rest to 0.</summary>
+public class ChildProgressDto
+{
+    public Guid ChildId { get; set; }
+    public double AvgProgressPercent { get; set; }
 }
 
 // ---- Limit status ----

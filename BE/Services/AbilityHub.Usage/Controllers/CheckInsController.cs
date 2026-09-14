@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using AbilityHub.ServiceClients;
 using AbilityHub.Usage.Controllers.DTOs;
 using AbilityHub.Usage.Services;
-using AbilityHub.Shared.Common;
 
 namespace AbilityHub.Usage.Controllers;
 
@@ -19,25 +18,25 @@ namespace AbilityHub.Usage.Controllers;
 public class CheckInsController : ControllerBase
 {
     private readonly ICheckInService _checkIns;
-    private readonly IUsersServiceClient _usersClient;
+    private readonly IChildAccessAuthorizer _access;
 
-    public CheckInsController(ICheckInService checkIns, IUsersServiceClient usersClient)
+    public CheckInsController(ICheckInService checkIns, IChildAccessAuthorizer access)
     {
         _checkIns = checkIns;
-        _usersClient = usersClient;
+        _access = access;
     }
 
     [HttpPost]
     public async Task<IActionResult> Submit(Guid childId, [FromBody] WeeklyCheckInRequest request)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
         return Ok(await _checkIns.SubmitAsync(childId, request));
     }
 
     [HttpGet]
     public async Task<IActionResult> Get(Guid childId)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
         return Ok(await _checkIns.GetForChildAsync(childId));
     }
 
@@ -45,14 +44,7 @@ public class CheckInsController : ControllerBase
     [HttpDelete("{checkInId:guid}")]
     public async Task<IActionResult> Delete(Guid childId, Guid checkInId)
     {
-        if (!await CanManageChildAsync(childId)) return Forbid();
+        if (!await _access.CanManageChildAsync(User, childId)) return Forbid();
         return await _checkIns.DeleteAsync(childId, checkInId) ? NoContent() : NotFound();
-    }
-
-    // A parent evaluation is authored about a child by their guardian (or an admin).
-    private async Task<bool> CanManageChildAsync(Guid childId)
-    {
-        if (User.IsInRole(Roles.Admin)) return true;
-        return User.IsInRole(Roles.Parent) && await _usersClient.IsGuardianOfChildAsync(User.GetUserId(), childId);
     }
 }
